@@ -1,0 +1,182 @@
+<!-- Copyright (c) 2016, preview-code
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of rite-evaluation nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../project-behavior.html">
+<link rel="import" href="set-reviewers.html">
+
+<dom-module id="reviewers-list">
+  <template>
+    <style>
+      :host {
+        display:flex;
+        flex-wrap: wrap;
+        padding: 6px
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .lgtm.true {
+        transform: scale(1);
+      }
+      .lgtm {
+        transform: scale(0);
+        -webkit-transition: all 0.3s ease;
+        -moz-transition: all 0.3s ease;
+        -ms-transition: all 0.3s ease;
+        -o-transition: all 0.3s ease;
+        transition: all 0.3s ease;
+        fill: var(--primary-background-color);
+        padding: 4px;
+        width:16px;
+        height:16px;
+        background-color: var(--primary-action-green);
+        border-radius: 13px;
+      }
+      .reviewer {
+        width: 40px;
+        height: 40px;
+        padding: 6px;
+      }
+      :host([small]) .reviewer {
+        width: 32px;
+        height: 32px;
+      }
+      .reviewer:hover paper-icon-button {
+        display: block;
+      }
+      .reviewer .image {
+        -webkit-box-shadow: 0 0 4px 0 rgba(0,0,0,0.2);
+        box-shadow: 0 0 4px 0 rgba(0,0,0,0.2);
+        border-radius: 9px;
+        background-repeat: no-repeat;
+        background-size: 100%;
+        width: 100%;
+        height: 100%;
+      }
+      paper-icon-button {
+        display: none;
+        color: white;
+        background-color: var(--primary-action-red);
+        padding: 2px;
+        width: 24px;
+        height: 24px;
+        border-radius: 12px;
+      }
+      .icons {
+         position: relative;
+         display: flex;
+         justify-content: space-between;
+         top: -10px;
+         left: -10px;
+         width: calc(100% + 20px);
+       }
+
+    </style>
+
+    <github-authenticated-ajax
+      id="removeAssignees"
+      method="DELETE"
+      refurl="[[githubPathPost]]"
+      headers='{"Accept": "application/vnd.github.cerberus-preview+json"}'
+      on-response="_removeAssigneesList"
+      ></github-authenticated-ajax>
+
+    <template is="dom-repeat" items="[[sortedReviewers]]" as="reviewer">
+      <div class="reviewer" title$="[[reviewer.login]]">
+        <div class="image" style$="background-image: url([[reviewer.avatar_url]]); ">
+          <div class="icons">
+            <iron-icon class$="lgtm [[reviewer.approved]]" icon="icons:thumb-up"></iron-icon>
+            <paper-icon-button hidden$="[[!editable]]" title$="Unassign [[reviewer.login]]"  on-tap="_removeAssignee" icon="icons:clear"></paper-icon-button>
+         </div>
+        </div>
+      </div>
+    </template>
+  </template>
+  <script>
+  /*global ProjectBehavior*/
+    Polymer({
+      is: 'reviewers-list',
+      behaviors: [ProjectBehavior],
+      properties: {
+        small: {
+          type: Boolean,
+          value: false
+        },
+        editable: {
+          type: Boolean,
+          value: false
+        },
+        sortedReviewers: {
+          type: Array,
+          value: function() {
+            return [];
+          }
+        },
+        pullRequest: {
+          type: Object,
+          notify: true
+        },
+        githubPathPost: {
+          type: String,
+          computed: '_githubPathPost(project, pullRequest)'
+        },
+      },
+      observers: [
+        '_updateReviewers(pullRequest)',
+        '_updateReviewers(pullRequest.assignees)',
+        '_updateReviewers(pullRequest.approvals)'
+      ],
+      _updateReviewers: function() {
+        var approvals = this.pullRequest.approvals || {};
+        this.sortedReviewers = this.pullRequest.assignees.map(function(assignee) {
+          return {
+            login: assignee.login,
+            approved: approvals[assignee.id],
+            avatar_url: assignee.avatar_url
+          };
+        });
+      },
+      _githubPathPost: function(project, pullRequest) {
+        if (project !== undefined && pullRequest !== undefined) {
+          return 'https://api.github.com/repos/' + project.owner + '/' + project.name + '/issues/' + pullRequest.number + '/assignees';
+        }
+      },
+      _removeAssignee: function(e) {
+        this.$.removeAssignees.body = {
+          assignees: [e.model.reviewer.login]
+        }
+        this.$.removeAssignees.generateRequest();
+      },
+      _removeAssigneesList: function(e) {
+        this.set('pullRequest.assignees', e.detail.response.assignees);
+      }
+    });
+  </script>
+</dom-module>
