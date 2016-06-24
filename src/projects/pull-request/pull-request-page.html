@@ -1,0 +1,207 @@
+<!-- Copyright (c) 2016, preview-code
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of rite-evaluation nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<link rel="import" href="../../bower_components/carbon-route/carbon-route.html">
+<link rel="import" href="../../bower_components/iron-pages/iron-pages.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../bower_components/paper-toolbar/paper-toolbar.html">
+<link rel="import" href="../../bower_components/paper-tabs/paper-tabs.html">
+<link rel="import" href="../../bower_components/iron-ajax/iron-ajax.html">
+<link rel="import" href="../info-header.html">
+<link rel="import" href="../project-behavior.html">
+<link rel="import" href="pull-request-general-information.html">
+<link rel="import" href="pull-request-changes.html">
+<link rel="import" href="pull-request-commits.html">
+<link rel="import" href="get-comments.html">
+
+<dom-module id="pull-request-page">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        flex-direction: column;
+        background-color: var(--secondary-background-color);
+        overflow-y: auto;
+        overflow-x: hidden;
+        height: 100%;
+      }
+      :host > div {
+        flex: 1;
+      }
+      .description {
+        display: block;
+      }
+      .actions {
+        margin-right: 15px;
+      }
+      [icon='add'] {
+        border-radius: 20px;
+        background-color: white;
+        color: var(--primary-color);
+      }
+      paper-tabs {
+        display: block;
+        justify-content: center;
+        @apply(--layout-self-end);
+        --paper-tabs-selection-bar-color: var(--secondary-action-red);
+        color: var(--secondary-action-red);
+        font-size: 1em;
+        width: 400px;
+        margin: 0 auto;
+      }
+      paper-tab {
+        padding: 0;
+        --paper-tab-ink: var(--secondary-action-red);
+        text-transform: uppercase;
+        font-weight: 500;
+      }
+      paper-tab a {
+        @apply(--layout-horizontal);
+        @apply(--layout-center-center);
+        text-decoration: none;
+        color: var(--primary-text-color);
+        padding: 0 20px;
+        height: 100%;
+      }
+      iron-pages {
+        flex: 1;
+        z-index: 0;
+      }
+      info-header {
+        z-index: 1;
+      }
+      iron-pages > pull-request-changes[show-space] {
+        @apply(--full-width);
+        margin-bottom: 0;
+      }
+      iron-pages > * {
+        display: flex;
+        flex-direction: column;
+        @apply(--constraint-width);
+        margin-bottom: 2em;
+        -webkit-transition: all 0.5s ease;
+        -moz-transition: all 0.5s ease;
+        -ms-transition: all 0.5s ease;
+        -o-transition: all 0.5s ease;
+        transition: all 0.5s ease;
+      }
+    </style>
+
+    <github-authenticated-ajax
+      id="ajaxDiff"
+      refurl="[[selectedPull._links.self.href]]"
+      handle-as="text"
+      headers='{"Accept": "application/vnd.github.VERSION.diff"}'
+      last-response="{{diff}}"></github-authenticated-ajax>
+
+    <carbon-route route="{{route}}" pattern="/:page" data="{{page}}" tail="{{tail}}"></carbon-route>
+    <get-comments groups="{{orderedGroups}}" group-comments="{{groupComments}}"
+        pull-request="[[selectedPull]]" general-comments="{{generalComments}}"></get-comments>
+
+    <info-header title="[[selectedPull.title]]" collapsed="[[_showSpace]]">
+      <span class="subtitle"><img src$="[[selectedPull.user.avatar_url]]" width="24px" height="24px" alt$="[[selectedPull.user.login]]"/>[[selectedPull.user.login]]</span>
+      <paper-tabs selected="[[page.page]]" class="bottom self-end" attr-for-selected="data-route">
+        <paper-tab data-route="overview">
+          <a href$="[[route.prefix]]/overview">Overview</a>
+        </paper-tab>
+        <paper-tab data-route="commits">
+          <a href$="[[route.prefix]]/commits">Commits</a>
+        </paper-tab>
+        <paper-tab data-route="diff">
+          <a href$="[[route.prefix]]/diff">Changes</a>
+        </paper-tab>
+        <paper-tab data-route="space">
+          <a href$="[[route.prefix]]/space">Space</a>
+        </paper-tab>
+      </paper-tabs>
+    </info-header>
+
+    <iron-pages
+        selected="[[_selectedTab]]"
+        attr-for-selected="data-route"
+        fallback-selection="overview">
+      <pull-request-general-information data-route="overview" class="overview"
+        pull-request="{{selectedPull}}" project="[[project]]" comments={{generalComments}}></pull-request-general-information>
+      <pull-request-commits data-route="commits" pull-request="[[selectedPull]]" project="[[project]]"></pull-request-commits>
+      <pull-request-changes data-route="diff" diff="[[diff]]" base-url="[[selectedPull.head.repo.html_url]]"
+          show-space="[[_showSpace]]" sha="[[selectedPull.head.sha]]" pull-request="{{selectedPull}}"
+          github-user="[[githubUser]]" group-comments="{{groupComments}}"></pull-request-changes>
+      <span data-route="404">
+        Oops you hit a 404!
+        <a href="/">Head back home</a>
+      </span>
+    </iron-pages>
+  </template>
+  <script>
+  /*global ProjectBehavior*/
+    Polymer({
+      is: 'pull-request-page',
+      behaviors: [ProjectBehavior],
+      properties: {
+        githubUser: Object,
+        route: Object,
+        diff: String,
+        selectedPull: {
+          type: Object,
+          observer: '_fetchAjax',
+          notify: true
+        },
+        _showSpace: {
+          type: Boolean,
+          computed: '_getShowSpace(page.page)'
+        },
+        _selectedTab: {
+          type: String,
+          computed: '_getSelectedTab(page.page)'
+        },
+        orderedGroups: Array,
+        generalComments: Array,
+        groupComments: Array
+      },
+      _getSelectedTab: function(page) {
+        if (page === 'space') {
+          return 'diff';
+        }
+        return page;
+      },
+      _getShowSpace: function(page) {
+        if (page === 'space') {
+          this.fire('force-hide-list');
+          return true;
+        }
+        return false;
+      },
+      _fetchAjax: function(pullRequest) {
+        if (pullRequest) {
+          this.$.ajaxDiff.generateRequest();
+        }
+      }
+    });
+  </script>
+</dom-module>
