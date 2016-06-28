@@ -1,0 +1,201 @@
+<!-- Copyright (c) 2016, preview-code
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of rite-evaluation nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-input/paper-textarea.html">
+
+<link rel="import" href="../../util/to-date-string-behavior.html">
+<link rel="import" href="../../util/marked-github-element.html">
+<link rel="import" href="../../util/a-user.html">
+<link rel="import" href="../../util/branch-tag.html">
+<link rel="import" href="../../ajax/github-authenticated-ajax.html">
+<link rel="import" href="../../list-items/tags-list.html">
+
+<link rel="import" href="pull-request-comment.html">
+<link rel="import" href="pull-request-add-comments.html">
+<link rel="import" href="pull-request-reviewers.html">
+<link rel="import" href="pr-status.html">
+
+<dom-module id="pull-request-general-information">
+  <template>
+    <style>
+      .primary-container {
+        @apply(--primary-container);
+      }
+      .description {
+        padding: 0;
+      }
+      pull-request-comments {
+        display: block;
+      }
+      header {
+        padding: 1em;
+        background-color: var(--tertiary-background-color);
+      }
+      section {
+        display: flex;
+      }
+      section > * {
+        flex: 1;
+      }
+      header > * {
+        vertical-align: middle;
+      }
+      list-item-label {
+        margin: 0;
+        font-size: 0.9em;
+        line-height: 1.4em;
+      }
+      .state {
+        font-weight: 600;
+        text-transform: capitalize;
+        margin-right: 1em;
+      }
+      .state.open {
+        --tag-color: var(--primary-action-green);
+      }
+      .state.closed {
+        --tag-color: var(--primary-action-red);
+      }
+      .head, .time-open {
+        margin-right: 1em;
+      }
+      .line-stats {
+        height: 68px;
+        width: 68px;
+        background-color: red;
+        float: right;
+      }
+      marked-github-element {
+        display: flex;
+        padding: 0 2em;
+        margin: 1em 0;
+      }
+      .sidebar {
+        margin: 1em 0;
+        padding: 0 2em;
+        border-left: solid 1px var(--secondary-background-color);
+        max-width: 150px;
+      }
+      .merge-button {
+        --paper-button: {
+          @apply(--green-action-button);
+        };
+      }
+    </style>
+
+    <github-authenticated-ajax
+      id="ajaxIssue"
+      refurl="[[pullRequest._links.issue.href]]"
+      last-response="{{issue}}"></github-authenticated-ajax>
+
+    <github-authenticated-ajax
+      id="ajaxMergePR"
+      refurl="[[pullRequest._links.self.href]]/merge"
+      method="PUT"
+      on-response="_prHasBeenMerged"></github-authenticated-ajax>
+
+    <div class="description primary-container">
+      <header>
+        <list-item-label class$="state [[pullRequest.state]]" type="box">[[pullRequest.state]]</list-item-label>
+        <span><a-user user="[[pullRequest.user]]"></a-user> wants to merge into</span>
+        <branch-tag class="base" branch="[[pullRequest.base.label]]"></branch-tag>
+        <span>from</span>
+        <branch-tag class="head" branch="[[pullRequest.head.label]]"></branch-tag>
+        <list-item-label class="time-open" type="info" icon="device:access-time">[[toDateString(pullRequest.created_at)]] ago</list-item-label>
+      </header>
+      <section>
+        <div>
+          <marked-github-element markdown="[[pullRequest.body]]"></marked-github-element>
+          <pull-request-add-comments comments="{{comments}}" number="[[pullRequest.number]]"></pull-request-add-comments>
+        </div>
+        <div class="sidebar">
+          <pr-status pull-request="[[pullRequest]]"></pr-status>
+          <pull-request-reviewers editable="[[editable]]" pull-request="[[pullRequest]]"></pull-request-reviewers>
+          <tags-list>
+            <template is="dom-repeat" items="[[issue.labels]]">
+              <tag-list-item backgroundcolor="[[item.color]]">[[item.name]]</tag-list-item>
+            </template>
+          </tags-list>
+        </div>
+      </section>
+    </div>
+
+    <div class="primary-container">
+      <paper-button
+          class="merge-button" on-tap="_mergePR"
+          raised disabled="[[!pullRequest.mergeable]]">
+        [[_getMergeButtonText(pullRequest.mergeable)]]
+      </paper-button>
+    </div>
+    <template is="dom-repeat" items="[[comments]]">
+      <pull-request-comment text="[[item.body]]" author="[[item.user]]" date="[[item.created_at]]"></pull-request-comment>
+    </template>
+  </template>
+  <script>
+  /*global ToDateStringBehavior*/
+    Polymer({
+      is: 'pull-request-general-information',
+      behaviors: [ToDateStringBehavior],
+      properties: {
+        comments: Array,
+        issue: Object,
+        pullRequest: {
+          type: Object,
+          notify: true
+        }
+      },
+      observers: [
+        '_fireAjax(pullRequest)',
+        // Because the PR state css class is set dynamically,
+        // and this class uses a mixin which is also evaluated dynamically,
+        // we need to manually trigger updating the styles.
+        'updateStyles(pullRequest.state)'
+      ],
+      _fireAjax: function(pullRequest) {
+        if (pullRequest) {
+          this.$.ajaxIssue.generateRequest();
+        }
+      },
+      _mergePR: function() {
+        this.$.ajaxMergePR.body = {
+          commit_title: 'Merged pull request #' + this.pullRequest.number + ' from ' + this.pullRequest.head.label,
+          sha: this.pullRequest.head.sha
+        };
+        this.$.ajaxMergePR.generateRequest();
+      },
+      _getMergeButtonText: function(mergeable) {
+        return mergeable ? 'Merge pull request' : 'This branch has conflicts that must be resolved';
+      },
+      _prHasBeenMerged: function(e) {
+        console.log(e);
+      }
+    });
+  </script>
+</dom-module>
