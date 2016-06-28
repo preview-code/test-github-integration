@@ -1,0 +1,118 @@
+<!-- Copyright (c) 2016, preview-code
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of rite-evaluation nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<link rel="import" href="../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../../bower_components/paper-menu/paper-menu.html">
+<link rel="import" href="../../bower_components/paper-item/paper-item.html">
+<link rel="import" href="../../bower_components/polymerfire/firebase-document.html">
+<link rel="import" href="../../ajax/backend-ajax.html">
+<link rel="import" href="../../list-items/list-item-label.html">
+<link rel="import" href="../project-behavior.html">
+
+<dom-module id="pr-status">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+      list-item-label{
+        white-space: normal;
+      }
+    </style>
+    <backend-ajax
+      id="setPrStatus"
+      refurl="[[backendPath]]"></backend-ajax>
+
+    <firebase-document
+      app-name="preview-code"
+      path="[[statusPath]]"
+      on-data-changed="_updateRetrievedStatus"
+      ></firebase-document>
+
+    <list-item-label type="box" title="status">[[status]]</list-item-label>
+    <paper-dropdown-menu label="Set status" value="{{status}}" on-value-changed="_updateFirebaseStatus">
+      <paper-menu class="dropdown-content">
+        <template is="dom-repeat" items="[[statuses]]" index-as="index">
+          <paper-item>[[item]]</paper-item>
+        </template>
+      </paper-menu>
+    </paper-dropdown-menu>
+  </template>
+  <script>
+  /*global ProjectBehavior*/
+    Polymer({
+      is: 'pr-status',
+      behaviors: [ProjectBehavior],
+      properties: {
+        statuses: {
+          type: Array,
+          value: function() {
+            return ['No reviewer assigned', 'Awaiting reviewer response', 'Awaiting contributor response']
+          }
+        },
+        status: {
+          type: String
+        },
+        sendStatus: String,
+        pullRequest: Object,
+        statusPath: {
+          type: String,
+          computed: '_updateStatusPath(project, pullRequest)'
+        },
+        backendPath: {
+          type: String,
+          computed: '_updateBackendPath(project, pullRequest)'
+        }
+      },
+      observers: [
+        '_setStatus(retrievedStatus)'
+      ],
+      _updateRetrievedStatus: function(e) {
+        this.retrievedStatus = e.detail.value;
+      },
+      _updateStatusPath: function(project, pullRequest) {
+        return '/' + project.owner + '/' + project.name + '/pulls/' + pullRequest.number + '/status';
+      },
+      _updateBackendPath: function(project, pullRequest) {
+        return project.owner + '/' + project.name + '/pulls/' + pullRequest.number + '/status';
+      },
+      _updateFirebaseStatus: function(e) {
+        if (!e.detail.value) {
+          return;
+        }
+        this.$.setPrStatus.body = {
+          status: this.status
+        };
+        this.$.setPrStatus.generateRequest();
+      },
+      _setStatus: function(retrievedStatus) {
+        this.status = (typeof retrievedStatus !== 'object') ? retrievedStatus : 'No reviewer assigned';
+      }
+    });
+  </script>
+</dom-module>
