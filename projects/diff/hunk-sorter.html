@@ -1,0 +1,272 @@
+<!-- Copyright (c) 2016, preview-code
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright notice, this
+  list of conditions and the following disclaimer.
+
+* Redistributions in binary form must reproduce the above copyright notice,
+  this list of conditions and the following disclaimer in the documentation
+  and/or other materials provided with the distribution.
+
+* Neither the name of preview-code nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../../bower_components/polymerfire/firebase-document.html">
+<link rel="import" href="../project-behavior.html">
+
+<dom-module id="hunk-sorter">
+  <template>
+    <firebase-document
+      app-name="preview-code"
+      path="[[_remoteOrderingPath]]"
+      data="{{_remoteOrdering}}"
+      ></firebase-document>
+  </template>
+  <script>
+  /*global ProjectBehavior*/
+    Polymer({
+      is: 'hunk-sorter',
+      behaviors: [ProjectBehavior],
+      properties: {
+        pullRequest: Object,
+        rawHunks: Array,
+        groups: {
+          type: Array,
+          value: function() {
+            return [];
+          },
+          notify: true
+        },
+        _remoteOrdering: {
+          type: Object
+        },
+        _remoteOrderingPath: {
+          type: String,
+          computed: '_getOrderingPath(project, pullRequest)'
+        }
+      },
+      observers: [
+        '_sortHunks(rawHunks, _remoteOrdering)'
+      ],
+
+      getOrdering: function() {
+        return this.groups.map(function(group) {
+          return {
+            id: group.id,
+            info: group.info,
+            diff: group.diff.map(function(hunk) {
+              return this._getHunkId(hunk);
+            }.bind(this))
+          };
+        }.bind(this));
+      },
+
+      addGroup: function(groupTitle) {
+        var ordering = this._createHunkOrdering(groupTitle, []);
+        this.unshift('groups', this._createGroupFromOrdering(ordering, []));
+        return ordering.id;
+      },
+
+      removeGroup: function(groupId) {
+        if (this._groupExists(groupId)) {
+          this.groups = this.groups.filter(function(g) {
+            return g.id !== groupId;
+          })
+        }
+      },
+
+      addHunkToGroup: function(hunk, groupId, index) {
+        this._doForGroup(groupId, function(i, group) {
+          group.diff.splice(index, 0, hunk);
+        }.bind(this));
+      },
+
+      removeHunkFromGroup: function(groupId, hunk) {
+        this._doForGroup(groupId, function(i, group) {
+          for (var j = 0, m = group.diff.length; j < m; j++) {
+            if (this._getHunkId(hunk) === this._getHunkId(group.diff[j])) {
+              this.groups[i].diff.splice(j, 1);
+              this._removeGroupIfEmpty(i);
+              return;
+            }
+          }
+        }.bind(this));
+      },
+
+      moveHunk: function(groupId, oldIndex, newIndex) {
+        if (oldIndex !== newIndex) {
+          this._doForGroup(groupId, function(index, group) {
+            var hunk = group.diff.splice(oldIndex, 1)[0];
+            group.diff.splice(Math.max(newIndex, 0), 0, hunk);
+          });
+        }
+      },
+
+      moveGroup: function(oldIndex, newIndex) {
+        if (oldIndex !== newIndex) {
+          var group = this.groups.splice(oldIndex, 1)[0];
+          this.groups.splice(Math.max(newIndex, 0), 0, group);
+          this.fire('orderUpdate');
+        }
+      },
+
+
+      _getOrderingPath: function(project, pullRequest) {
+        return project.owner + '/' + project.name + '/pulls/' + pullRequest.number + '/ordering';
+      },
+      _getOrderingFromFirebaseObj: function(fbOrdering) {
+        var defaultGroupName = 'Unsorted changes';
+        var ordering = [];
+        if (fbOrdering.lastChanged) {
+          defaultGroupName = 'New changes since: ' + fbOrdering.lastChanged;
+          ordering = fbOrdering.groups;
+        }
+        var defaultGroup = this._createHunkOrdering(defaultGroupName, []);
+        return [ordering, defaultGroup];
+      },
+
+      _sortHunks: function(rawHunks, fbOrdering) {
+        var tuple = this._getOrderingFromFirebaseObj(fbOrdering);
+        var ordering = tuple[0];
+        var defaultGroup = tuple[1];
+        var unsortedHunks = this._hunksToMap(rawHunks);
+
+        var allGroups = [];
+        for (var i = 0, l = ordering.length; i < l; i++) {
+          var group = this._reconstructGroup(ordering[i], unsortedHunks);
+          if (group) {
+            allGroups.push(group);
+          }
+        }
+
+        var unsortedGroup = this._distributeUnsortedHunks(defaultGroup, unsortedHunks);
+        if (unsortedGroup.diff.length > 0) {
+          allGroups.push(unsortedGroup);
+        }
+        this.set('groups', allGroups);
+      },
+
+      _hunksToMap: function(hunks) {
+        var allHunks = {};
+        hunks.forEach(function(hunk) {
+          hunk.id = this._getHunkId(hunk)
+          allHunks[hunk.id] = hunk;
+        }.bind(this));
+        return allHunks;
+      },
+
+      _reconstructGroup: function(hunkOrdering, unsortedHunks) {
+        var hunks = this._findHunksInOrdering(hunkOrdering, unsortedHunks);
+        hunks = hunks.filter(function(hunk) {
+          return !!hunk;
+        });
+        return this._createGroupFromOrdering(hunkOrdering, hunks);
+      },
+
+      _findHunksInOrdering: function(hunkOrdering, unsortedHunks) {
+        if (hunkOrdering.length === 0) {
+          return [];
+        }
+        return hunkOrdering.diff.map(function(hunkId) {
+          var hunk = unsortedHunks[hunkId];
+          delete unsortedHunks[hunkId];
+          if (hunk) {
+            return hunk;
+          }
+
+          // ?? hunk is in our ordering but does not exist anymore
+        }.bind(this));
+      },
+
+      _distributeUnsortedHunks: function(defaultGroup, unsortedHunks) {
+        var unsortedGroup = this._createGroupFromOrdering(defaultGroup, []);
+        for (var remainingHunkId in unsortedHunks) {
+          unsortedGroup.diff.push(unsortedHunks[remainingHunkId]);
+          defaultGroup.diff.push(remainingHunkId);
+        }
+        return unsortedGroup;
+      },
+
+      _getHunkId: function(hunk) {
+        return btoa(hunk.file.name + ',' +
+          hunk.linesChanged.startLineBefore + ',' +
+          hunk.linesChanged.rangeBefore + ',' +
+          hunk.linesChanged.startLineAfter + ',' +
+          hunk.linesChanged.rangeAfter);
+      },
+
+      _createGroupFromOrdering: function(ordering, diff) {
+        return {
+          id: ordering.id,
+          info: ordering.info,
+          diff: diff,
+          comments: []
+        }
+      },
+
+      _createHunkOrdering: function(groupTitle, hunkIds) {
+        return {
+          id: this._guid(),
+          info: {
+            title: groupTitle,
+            description: ''
+          },
+          diff: hunkIds
+        }
+      },
+
+      _removeGroupIfEmpty: function(index) {
+        if (this.groups[index].diff.length === 0) {
+          this.groups.splice(index, 1);
+          this.fire('orderUpdate');
+        }
+      },
+
+      _groupExists: function(id) {
+        return this._searchGroup('id')(id);
+      },
+
+      _searchGroup: function(field) {
+        return function(entry) {
+          return this.groups.filter(function(g) {
+            return g[field] === entry;
+          }).length > 0;
+        }.bind(this);
+      },
+
+      _doForGroup: function(groupId, f) {
+        for (var i = 0, l = this.groups.length; i < l; i++) {
+          if (this.groups[i].id === groupId) {
+            return f(i, this.groups[i]);
+          }
+        }
+      },
+
+      /**
+       * RFC4122 v4 compliant GUID generator
+       */
+      _guid: function() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+            return v.toString(16);
+        });
+      }
+    });
+  </script>
+</dom-module>
