@@ -1,0 +1,103 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../../../bower_components/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../../../bower_components/paper-tooltip/paper-tooltip.html">
+<link rel="import" href="../../../bower_components/markdown-input/markdown-input.html">
+
+<dom-module id="project-create-pull-request-description">
+  <template>
+    <style>
+      :host {
+        display: block;
+        padding: 2em;
+        border-bottom: solid 1px var(--secondary-background-color);
+        background-color: var(--primary-background-color);
+      }
+      .title {
+        --paper-input-container: {
+          padding: 0 0 1em 0;
+        };
+        --paper-input-container-input: {
+          font-size: 2em;
+        };
+        --paper-input-container-label: {
+          font-size: 2em;
+          line-height: normal;
+          color: var(--secondary-text-color);
+        };
+        --paper-input-container-label-floating: {
+          font-size: 1em;
+        }
+        --paper-input-container-color: var(--secondary-background-color);
+        --paper-input-container-focus-color: var(--anchor-color);
+      }
+      #backLink {
+        margin-top: 2em;
+        --paper-checkbox-checked-color: var(--secondary-text-color);
+        --paper-checkbox-checked-ink-color: var(--anchor-color);
+        --paper-checkbox-unchecked-color: var(--anchor-color);
+        --paper-checkbox-unchecked-ink-color: var(--anchor-color);
+        --paper-checkbox-label-color: var(--anchor-color);
+        --paper-checkbox-label-checked-color: var(--primary-text-color);
+      }
+      paper-tooltip {
+        max-width: 50%;
+        --paper-tooltip: {
+          font-size: 16px;
+          line-height: 1.5em;
+        };
+      }
+    </style>
+
+    <paper-input
+      disabled=[[disabled]]
+      id="title"
+      class="title"
+      label="Enter a pull request title"
+      value="{{title}}"></paper-input>
+    <markdown-input
+      disabled=[[disabled]]
+      label="Enter a description for your pull request. Markdown is supported."
+      markdown="{{description}}"></markdown-input>
+    <paper-checkbox
+      disabled=[[disabled]]
+      id="backLink"
+      checked="{{backLink}}">Add link to preview-code on GitHub</paper-checkbox>
+    <paper-tooltip
+      disabled=[[disabled]]
+      for="backLink"
+      offset="5">
+      Include a link back to this pull request on preview-code.com inside the pull description on GitHub.
+      This lets anyone viewing your pull request on GitHub know that you care about code reviews!
+    </paper-tooltip>
+  </template>
+  <script>
+    Polymer({
+      is: 'project-create-pull-request-description',
+      properties: {
+        title: {
+          type: String,
+          notify: true
+        },
+        description: {
+          type: String,
+          notify: true
+        },
+        backLink: {
+          type: Boolean,
+          value: true,
+          notify: true
+        },
+        disabled: Boolean
+      },
+
+      focus: function () {
+        this.$.title.focus();
+      }
+    });
+  </script>
+</dom-module>

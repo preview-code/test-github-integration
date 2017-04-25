@@ -1,0 +1,55 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="group-editor.html">
+
+<dom-module id="project-create-pull-diff">
+  <template>
+    <style include="drag-element-styles">
+      :host {
+        display: block;
+        user-select: none;
+        -moz-user-select: none;
+        -webkit-user-select: none;
+      }
+
+      header {
+        margin: 0 2em;
+        border-bottom: solid 1px var(--secondary-text-color);
+        margin-bottom: 1em;
+        padding-bottom: 1em;
+        display: flex;
+      }
+
+      header h2 {
+        margin: 0;
+        font-weight: 300;
+        flex: 1
+      }
+
+      paper-spinner {
+        display: block;
+        margin: 10px auto;
+      }
+    </style>
+
+    <group-editor id="editor" diff="[[diff]]" base-url="[[baseUrl]]"></group-editor>
+
+    <paper-spinner alt="Submitting pull request..." active="[[loading]]"></paper-spinner>
+  </template>
+  <script>
+    Polymer({
+      is: 'project-create-pull-diff',
+      properties: {
+        diff: String,
+        baseUrl: String,
+        loading: {
+          type: Boolean,
+          value: false
+        }
+      }
+    });
+  </script>
+</dom-module>

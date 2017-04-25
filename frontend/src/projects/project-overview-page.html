@@ -1,0 +1,214 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../bower_components/iron-pages/iron-pages.html">
+<link rel="import" href="../../bower_components/app-route/app-location.html">
+<link rel="import" href="../../bower_components/app-route/app-route.html">
+<link rel="import" href="../../bower_components/paper-toolbar/paper-toolbar.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-input/paper-input-container.html">
+<link rel="import" href="../../bower_components/paper-card/paper-card.html">
+<link rel="import" href="../../bower_components/util/behaviors/reset-view-state-behavior.html">
+<link rel="import" href="create-pull-request/create-pull-request.html">
+<link rel="import" href="project-behavior.html">
+<link rel="import" href="project-activity.html">
+<link rel="import" href="feature-bar.html">
+
+<dom-module id="project-overview-page">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        height: 100%
+      }
+
+      .description {
+        margin-top: 1em;
+        font-size: 1em;
+        color: var(--secondary-text-color);
+      }
+
+      iron-pages {
+        flex: 1;
+        overflow-x: hidden;
+        overflow-y: scroll;
+      }
+
+      a {
+        color: var(--anchor-color);
+      }
+
+      feature-bar .content {
+        display: flex;
+        flex-direction: column;
+      }
+
+      feature-bar .content .title {
+        flex-grow: 1;
+        display: flex;
+      }
+
+      feature-bar .content .title h2 {
+        margin: 0;
+        flex: 1;
+      }
+
+      feature-bar .content .subtitle span {
+        margin-right: 0.5em;
+      }
+
+      feature-bar .content #cloneUrl {
+        display: flex;
+        font-size: 14px;
+      }
+
+      feature-bar paper-button {
+        margin: 0;
+      }
+
+      feature-bar .clone-button {
+        background-color: var(--primary-action-green);
+        color: white;
+        font-weight: 600;
+      }
+
+      feature-bar .content #cloneUrl:not([closed]) .clone-button {
+        background-color: var(--primary-action-red);
+      }
+
+      feature-bar .content #cloneUrl .url-content {
+        line-height: 22px;
+        border-radius: 2px;
+        background-color: var(--secondary-background-color);
+        transition: width ease 0.25s;
+        width: 300px;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+        display: flex;
+        overflow: hidden;
+      }
+
+      feature-bar .content #cloneUrl .clone-url-input {
+        font-family: 'Roboto Mono';
+        font-size: 14px;
+        background-color: var(--secondary-background-color);
+        border: none;
+        margin: 8px;
+        flex: 1;
+      }
+
+      feature-bar #cloneUrl #toggleUrlType {
+        padding: 0;
+      }
+
+      #toggleUrlType[ssh-url] > .https {
+        display: none;
+      }
+
+      #toggleUrlType:not([ssh-url]) > .ssh {
+        display: none;
+      }
+
+      feature-bar .content #cloneUrl[closed] .url-content {
+        width: 0px;
+        padding: 0;
+      }
+    </style>
+
+    <app-route route="{{route}}" pattern="/:page" data="{{page}}"></app-route>
+
+    <feature-bar selected-feature={{page.page}} collapsed="[[fBarCollapsed]]">
+      <div class="content">
+        <div class="title">
+          <h2>[[project.owner]] / [[project.name]]</h2>
+          <paper-card id="cloneUrl" closed>
+            <div class="url-content">
+              <paper-button id="toggleUrlType" on-tap="_toggleCloneUrlType" ssh-url><span class="ssh">SSH</span><span class="https">HTTPS</span></paper-button>
+              <input readonly class="clone-url-input" is="iron-input" value="[[displayCloneURL]]" onclick="this.setSelectionRange(0, this.value.length);"></input>
+            </div>
+            <paper-button class="clone-button" on-tap="_openCloneUrl">Clone</paper-button>
+          </paper-card>
+        </div>
+        <div class="subtitle">
+          <span>[[project.description]]</span><a href="[[project.homepage]]">[[project.homepage]]</a>
+        </div>
+      </div>
+      <div feature="activity">
+        <a href$="[[route.prefix]]/activity">Activity</a>
+      </div>
+      <div feature="createpull">
+        <a href$="[[route.prefix]]/createpull">Create pull request</a>
+      </div>
+    </feature-bar>
+
+    <iron-pages selected="[[page.page]]" attr-for-selected="data-route" fallback-selection="activity">
+      <project-activity data-route="activity"></project-activity>
+      <project-create-pull-request data-route="createpull" github-user="[[githubUser]]"></project-create-pull-request>
+    </iron-pages>
+  </template>
+  <script>
+    /*global ProjectBehavior ResetViewStateBehavior*/
+    Polymer({
+      is: 'project-overview-page',
+      behaviors: [ProjectBehavior, ResetViewStateBehavior],
+      observers: [
+        'initSshUrl(project.ssh_url)',
+        '_onPageChange(page.page)'
+      ],
+      properties: {
+        githubUser: Object,
+        route: Object,
+        page: Object,
+        displayCloneURL: String,
+        active: {
+          type: Boolean,
+          observer: '_onActiveChange'
+        }
+      },
+
+      _onActiveChange: function (active) {
+        if (!active) {
+          this.performReset();
+        }
+      },
+
+      _openCloneUrl: function () {
+        var input = this.$$('.clone-url-input');
+        var inputContainer = this.$.cloneUrl;
+        if (inputContainer.hasAttribute('closed')) {
+          inputContainer.removeAttribute('closed');
+          input.focus();
+          input.setSelectionRange(0, input.value.length);
+        } else {
+          this.$.cloneUrl.setAttribute('closed', true);
+        }
+      },
+
+      _toggleCloneUrlType: function () {
+        var urlTypeBtn = this.$.toggleUrlType
+        urlTypeBtn.toggleAttribute('ssh-url');
+        if (urlTypeBtn.hasAttribute('ssh-url')) {
+          this.displayCloneURL = this.project.ssh_url;
+        } else {
+          this.displayCloneURL = this.project.html_url + '.git';
+        }
+      },
+
+      initSshUrl: function (url) {
+        this.displayCloneURL = url;
+      },
+
+      _onPageChange: function (page) {
+        if (page === 'createpull') {
+          this.fBarCollapsed = true;
+        } else {
+          this.fBarCollapsed = false;
+        }
+      }
+    });
+  </script>
+</dom-module>

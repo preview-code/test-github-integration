@@ -1,0 +1,248 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../../bower_components/paper-input/paper-textarea.html">
+<link rel="import" href="../../../bower_components/util/behaviors/to-date-string-behavior.html">
+<link rel="import" href="../../../bower_components/util/behaviors/reset-view-state-behavior.html">
+<link rel="import" href="../../../bower_components/markdown-input/markdown-input.html">
+<link rel="import" href="../../../bower_components/comments/comment-list.html">
+<link rel="Import" href="../../../bower_components/comments/add-comment.html">
+
+<link rel="import" href="../create-pull-request/create-pull-request-description.html">
+<link rel="import" href="../../util/ci-indicator.html">
+<link rel="import" href="../../../bower_components/github-ajax/github-ajax.html">
+<link rel="import" href="../../list-items/tags-list.html">
+
+<link rel="import" href="pull-request-reviewers.html">
+<link rel="import" href="pr-status.html">
+
+<dom-module id="pull-request-general-information">
+  <template>
+    <style>
+      .primary-container {
+        @apply --primary-container;
+        display: flex;
+      }
+
+      .secondary-container {
+        @apply --primary-container;
+      }
+
+      header {
+        padding: 1em;
+        background-color: var(--tertiary-background-color);
+      }
+
+      .primary-container > * {
+        flex: 1;
+      }
+
+      markdown-input {
+        display: flex;
+        margin: 1em 0;
+      }
+
+      .sidebar {
+        margin: 1em 0;
+        padding: 0 2em;
+        border-left: solid 1px var(--secondary-background-color);
+        max-width: 150px;
+      }
+
+      .merge-button {
+        --paper-button: {
+          @apply(--green-action-button);
+        }
+        ;
+      }
+
+      .primary-container .main {
+        min-width: 0;
+      }
+
+      a {
+        padding: 4px;
+        margin-left: 12px;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      a:hover {
+        color: var(--secondary-text-color);
+        text-decoration: underline;
+      }
+
+      .CIlist {
+        margin-left: 12px;
+        display: flex;
+      }
+    </style>
+
+    <github-ajax
+      id="ajaxIssue"
+      url="[[pullRequest._links.issue.href]]"
+      last-response="{{issue}}"
+    ></github-ajax>
+
+    <github-ajax
+      id="ajaxMergePR"
+      url="[[pullRequest._links.self.href]]/merge"
+      method="PUT"
+      on-github-response="_prHasBeenMerged"
+    ></github-ajax>
+
+    <github-ajax
+      id="updateDescription"
+      url="[[pullRequest._links.self.href]]"
+      method="PATCH"
+    ></github-ajax>
+
+    <github-ajax
+      id="ajaxCI"
+      url="[[statusURL]]"
+      last-response="{{CIstatus}}"
+    ></github-ajax>
+
+    <div class="primary-container">
+      <div class="main">
+        <markdown-input preview-toggle="{{shouldSend}}" markdown="{{pullRequest.body}}"></markdown-input>
+        <add-comment on-add-comment="_addComment" project="[[project]]"></add-comment>
+      </div>
+      <div class="sidebar">
+        <pr-status id="PRStatus" pull-request="[[pullRequest]]" status="{{_prStatus}}"></pr-status>
+        <pull-request-reviewers editable="[[editable]]" pull-request="[[pullRequest]]" on-reviewers-updated="_updateReviewerStatus"></pull-request-reviewers>
+        <tags-list>
+          <template is="dom-repeat" items="[[issue.labels]]">
+            <tag-list-item backgroundcolor="[[item.color]]">[[item.name]]</tag-list-item>
+          </template>
+        </tags-list>
+      </div>
+    </div>
+
+    <div class="secondary-container">
+      <div hidden$="[[hideCI]]">
+        <ci-indicator show-content="true" status="[[CIstatus.state]]" size="48px" icon-passed="icons:check-circle"
+          icon-failed="icons:cancel" icon-pending="icons:radio-button-unchecked"></ci-indicator>
+          <template is="dom-repeat" items="[[CIstatus.statuses]]">
+            <div class="CIlist">
+              <ci-indicator status="[[item.state]]" icon-passed="icons:check" icon-failed="icons:close" icon-pending="icons:radio-button-unchecked"></ci-indicator>
+              <a href="[[item.target_url]]" target="_blank">[[item.description]] at [[item.context]]</a>
+            </div>
+          </template>
+      </div>
+      <paper-button class="merge-button" on-tap="_mergePR" raised disabled="[[!pullRequest.mergeable]]">
+        [[_getMergeButtonText(pullRequest)]]
+      </paper-button>
+    </div>
+    <comment-list list="[[comments]]"></comment-list>
+  </template>
+  <script>
+    /*global ToDateStringBehavior ResetViewStateBehavior*/
+    Polymer({
+      is: 'pull-request-general-information',
+      behaviors: [ToDateStringBehavior, ResetViewStateBehavior],
+      properties: {
+        comments: Array,
+        issue: Object,
+        pullRequest: {
+          type: Object,
+          notify: true
+        },
+        _prStatus: String,
+        editData: {
+          type: Boolean,
+          value: false
+        },
+        shouldSend: {
+          type: Boolean,
+          value: true
+        },
+        statusURL: {
+          type: String
+        },
+        hideCI: {
+          type: Boolean,
+          value: true
+        }
+      },
+      observers: [
+        '_fireAjax(pullRequest)',
+        // Because the PR state css class is set dynamically,
+        // and this class uses a mixin which is also evaluated dynamically,
+        // we need to manually trigger updating the styles.
+        'updateStyles(pullRequest.state)',
+        '_updateDescription(shouldSend)',
+        '_hideCI(CIstatus)'
+      ],
+      _fireAjax: function (pullRequest) {
+        if (pullRequest) {
+          this.$.ajaxIssue.generateRequest();
+          this.statusURL = pullRequest._links.statuses.href.replace('statuses', 'status')
+          this.$.ajaxCI.generateRequest();
+        }
+      },
+      _mergePR: function () {
+        this.$.ajaxMergePR.body = {
+          commit_title: 'Merged pull request #' + this.pullRequest.number + ' from ' + this.pullRequest.head.label,
+          sha: this.pullRequest.head.sha
+        };
+        this.$.ajaxMergePR.generateRequest();
+      },
+      _getMergeButtonText: function (pr) {
+        if (pr.mergeable) {
+          return 'Merge pull request';
+        }
+        if (pr.merged) {
+          var date = new Date((pr.merged_at || '').replace(/-/g, '/').replace(/[TZ]/g, ' '));
+          return 'Merged by ' + pr.merged_by.login + ' ' + this.toDateStringLength(date.getTime(), 'long');
+        }
+        return 'This branch has conflicts that must be resolved';
+      },
+      _prHasBeenMerged: function (e) {
+        if (e.detail.response.merged) {
+          this.set('pullRequest.state', 'closed');
+        }
+      },
+      _updateReviewerStatus: function (e) {
+        if (e.detail.length && this._prStatus === 'No reviewer assigned') {
+          this.$.PRStatus.select('Awaiting reviewer response');
+        }
+      },
+      _updateDescription: function (shouldSend) {
+        if (this.pullRequest && shouldSend) {
+          this.$.updateDescription.body = {
+            title: this.pullRequest.title,
+            body: this.pullRequest.body,
+            state: this.pullRequest.state
+          }
+          this.$.updateDescription.generateRequest();
+        }
+      },
+      _hideCI: function (CIstatus) {
+        if (CIstatus) {
+          this.hideCI = CIstatus.statuses.length <= 0;
+        }
+      },
+      _addComment: function (e) {
+        var newComment = {};
+        newComment.body = e.detail;
+        newComment.project = this.project;
+        newComment.number = this.pullRequest.number;
+        newComment.type = 'pr';
+        e.stopPropagation();
+
+        var submit = function (user) {
+          newComment.user = user;
+          newComment.created_at = new Date();
+          this.push('comments', newComment);
+        }.bind(this);
+
+        this.fire('add-comment', { comment: newComment, onSuccess: submit });
+      }
+    });
+  </script>
+</dom-module>

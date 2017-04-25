@@ -1,0 +1,82 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>reviewers-list tests</title>
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+  <script src='../../../bower_components/iron-test-helpers/mock-interactions.js'></script>
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/pull-request/get-comments.html'>
+  <link rel='import' href='../../../bower_components/github-ajax/github-ajax.html'>
+
+</head>
+
+<body>
+  <test-fixture id="basic">
+    <template>
+      <get-comments></get-comments>
+    </template>
+  </test-fixture>
+
+  <script>
+    suite('<get-comments>', function () {
+      var elem;
+
+      setup(function () {
+        elem = fixture('basic');
+        window.fetch = () => new Promise(() => { });
+      });
+
+      test('no comments in array, when flushed', function () {
+        elem.generalComments = ['test'];
+        elem.groupComments = ['test'];
+        elem._flushComments();
+        assert.deepEqual(elem.generalComments, []);
+        assert.deepEqual(elem.groupComments, []);
+      });
+
+      test('comments correctly distributed when function is called', function (done) {
+        elem.fbComments = {
+          226514321: '6be9ab4f-7e1c-4b96-861d-80f766368371',
+          226514478: '6be9ab4f-7e1c-4b96-861d-80f766368371'
+        };
+        elem.pullRequest = {
+          number: 15,
+          base: {
+            repo: {
+              name: 'name',
+              owner: {
+                login: 'login'
+              }
+            }
+          }
+        };
+        function checkComments() {
+          elem.removeEventListener('added-comments', checkComments);
+          assert.deepEqual(elem.generalComments, [{ body: 'two', id: 226514322 }]);
+          assert.deepEqual(elem.groupComments[0].comment, { body: 'one', id: 226514321 });
+          assert.deepEqual(elem.groupComments[1].comment, { body: 'three', id: 226514478 });
+          done();
+        }
+        elem.addEventListener('added-comments', checkComments);
+
+        const e = {
+          detail: [{ 'body': 'one', 'id': 226514321 }, { 'body': 'two', 'id': 226514322 }, { 'body': 'three', 'id': 226514478 }]
+        }
+        elem._divideComments(e);
+      });
+    });
+
+  </script>
+
+</body>
+
+</html>
