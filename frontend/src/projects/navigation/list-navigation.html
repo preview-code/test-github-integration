@@ -1,0 +1,137 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/project-selector/project-selector.html">
+<link rel="import" href="project-pull-requests.html">
+
+<dom-module id="list-navigation">
+  <template>
+    <style>
+      :host {
+        display: flex;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .project-list {
+        z-index: 3;
+      }
+
+      .pull-list {
+        z-index: 2;
+      }
+
+      .project-list,
+      .pull-list {
+        position: absolute;
+        width: var(--project-list-width);
+        left: -var(--project-list-width);
+        will-change: left;
+        height: calc(100% - var(--header-height));
+        transition: left 0.4s ease;
+        background-color: var(--primary-background-color);
+        -webkit-box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.2);
+        box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.2);
+      }
+      .pull-list {
+        overflow-y: auto;
+      }
+      .collapsible {
+        position: fixed;
+        left: 0;
+        transition: left 0.4s ease;
+        z-index: 2;
+        height: 100%;
+      }
+
+      .collapsible::before {
+        content: '';
+        transition: all 0.4s ease;
+        opacity: 0;
+        background-color: rgba(0, 0, 0, 1);
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        will-change: opacity;
+      }
+
+      .collapsible.both-list::before {
+        opacity: 0.35;
+      }
+
+      .collapsible.one-list .project-list.true,
+      .collapsible.both-list .project-list.true,
+      .collapsible.one-list .pull-list {
+        left: 0;
+      }
+
+      .collapsible.both-list .pull-list.true {
+        left: var(--project-list-width);
+      }
+
+      search-box {
+        margin-top: 19.920px;
+      }
+
+      a {
+        color: inherit;
+      }
+      project-selector {
+        height: 100%;
+      }
+    </style>
+    <div class$="collapsible [[listClass]]">
+      <div class$="project-list [[showProjectsList]]">
+        <project-selector projects="[[projects]]"></project-selector>
+      </div>
+
+      <project-pull-requests class$="pull-list [[showPullList]]" route="{{nameTail}}" tabindex="0" pullrequests="[[pullrequests]]"
+        selected-pull="[[selectedPull]]"></project-pull-requests>
+    </div>
+  </template>
+  <script>
+    Polymer({
+      is: 'list-navigation',
+      properties: {
+
+        nameTail: Object,
+
+        showProjectsList: {
+          type: Boolean,
+          notify: true
+        },
+
+        showPullList: {
+          type: Boolean,
+          notify: true
+        },
+
+        projects: Array,
+
+        selectedPull: Object,
+
+        listClass: {
+          type: String,
+          computed: '_calcListClass(showProjectsList, showPullList)',
+          reflectToAttribute: true
+        },
+        
+        pullrequests: Array
+      },
+
+      _calcListClass: function(showProjectsList, showPullList) {
+        if (!showProjectsList && !showPullList) {
+          return 'no-list';
+        } else if (showProjectsList && showPullList) {
+          return 'both-list';
+        }
+        return 'one-list';
+      }
+    });
+  </script>
+</dom-module>

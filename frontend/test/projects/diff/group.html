@@ -1,0 +1,132 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>pull-request-group-tests</title>
+
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/diff/group.html'>
+
+</head>
+
+<body>
+
+  <test-fixture id='basic'>
+    <template>
+      <pull-request-group></pull-request-group>
+    </template>
+  </test-fixture>
+
+  <script>
+    suite('<pull-request-group> unit', function () {
+      var groupElem;
+
+      var initialcomments = [[], ['one comment'], ['first', 'second']];
+
+      setup(function () {
+        groupElem = fixture('basic');
+        groupElem.pullRequest = {
+          number: 42
+        }
+        groupElem.group = {
+          id: 'group-id',
+          info: {
+            title: 'group title',
+            descripion: ''
+          }
+        }
+        groupElem.comments = [];
+      });
+
+      test('hides comments by default', function () {
+        assert.isTrue(get('.toggle-comments').collapse);
+      });
+
+      test('shows comments when collapseComments is false', function () {
+        groupElem.collapseComments = false;
+        assert.isFalse(get('.toggle-comments').collapse);
+      });
+
+      test('hides description when no descripion was provided', function () {
+        var display = getComputedStyle(get('markdown-input')).display;
+        assert.equal(display, 'none');
+      });
+
+      test('shows title when collapsed', function () {
+        var group = {
+          info: {
+            title: 'someTitle',
+            descripion: ''
+          },
+          diff: [],
+          comments: []
+        }
+        groupElem.group = group;
+        groupElem.collapsed = true;
+        var title = get('editable-title');
+        assert.equal(title.value, 'someTitle');
+      });
+
+      test('has correct values when adding comments', function (done) {
+        groupElem.addEventListener('add-comment', function (e) {
+          assert.equal(e.detail.comment.body, body);
+          assert.equal(e.detail.comment.project, groupElem.project);
+          assert.equal(e.detail.comment.number, groupElem.pullRequest.number);
+          assert.equal(e.detail.comment.type, 'group')
+          assert.isFunction(e.detail.onSuccess);
+          done();
+        });
+
+        var e = new Event('add-comment');
+        var body = 'body of comment';
+        e.detail = body;
+        groupElem._addComment(e);
+      });
+
+
+      initialcomments.forEach(function (comments, index) {
+        test('Adds comment on callback ' + index, function (done) {
+
+          groupElem.addEventListener('add-comment', function (e) {
+            var length = comments.length;
+            groupElem.comments = comments;
+            e.detail.onSuccess(groupElem.githubUser);
+            assert.equal(groupElem.comments.length, length + 1);
+            assert.equal(groupElem.comments[length].body, 'body of comment');
+            assert.equal(groupElem.comments[length].project, groupElem.project)
+            assert.equal(groupElem.comments[length].number, groupElem.pullRequest.number);
+            assert.equal(groupElem.comments[length].type, 'group');
+            assert.equal(groupElem.comments[length].user, groupElem.githubUser);
+            assert.include(groupElem.comments[length], e.detail.comment);
+            assert.isDefined(groupElem.comments[length].created_at);
+            assert.isAtMost(groupElem.comments[length].created_at.getTime(), new Date().getTime());
+            assert.isAtLeast(groupElem.comments[length].created_at.getTime(), date);
+            done();
+          })
+
+          var date = new Date().getTime();
+          var e = new Event('add-comment');
+          e.detail = 'body of comment';
+          groupElem._addComment(e);
+        })
+      });
+
+
+      var get = function (elem) {
+        return Polymer.dom(groupElem.root).querySelector(elem);
+      }
+    });
+  </script>
+
+</body>
+
+</html>

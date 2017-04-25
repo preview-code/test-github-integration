@@ -1,0 +1,71 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+
+<!--
+Hide or show the content by clicking on the arrow.
+-->
+<dom-module id="collapsible-content">
+  <template>
+    <style>
+      :host {
+        display: block;
+        @apply(--collapsible-content);
+      }
+
+      #toggle-collapse-btn {
+        transform: rotate(0.5turn);
+        transition: transform 0.2s ease;
+        @apply(--collapse-icon);
+      }
+
+      #toggle-collapse-btn.hide.true {
+        transform: rotate(0turn);
+      }
+
+      ::content .header {
+        flex: 1;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        padding: 0 0.5em;
+        @apply(--collapse-header);
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+    <header>
+      <content select=".header"></content>
+      <paper-icon-button id="toggle-collapse-btn" icon="icons:arrow-downward" class$="hide [[collapse]]" on-tap="_toggleCollapse"></paper-icon-button>
+    </header>
+    <span id="content" hidden$="[[collapse]]">
+      <content></content>
+    </span>
+  </template>
+  <script>
+    Polymer({
+      is: 'collapsible-content',
+      properties: {
+        /**
+         * If the content should be hidden or not.
+         * @type {Boolean}
+         */
+        collapse: {
+          type: Boolean,
+          value: false,
+          notify: true
+        }
+      },
+      _toggleCollapse: function () {
+        this.collapse = !this.collapse;
+      }
+    });
+  </script>
+</dom-module>

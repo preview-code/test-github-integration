@@ -1,0 +1,85 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/github-ajax/github-ajax.html">
+<link rel="import" href="reviewers-list.html">
+<link rel="import" href="set-reviewers.html">
+
+<dom-module id="pull-request-reviewers">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+    <github-ajax
+      id="removeReviewers"
+      method="DELETE"
+      url="[[pullRequest._links.self.href]]/requested_reviewers"
+      headers='{"Accept": "application/vnd.github.black-cat-preview+json"}'
+      on-github-response="_updateReviewersList"
+    ></github-ajax>
+
+    <github-ajax
+       id="postReviewers"
+       method="POST"
+       url="[[pullRequest._links.self.href]]/requested_reviewers"
+       headers='{"Accept": "application/vnd.github.black-cat-preview+json"}'
+       on-github-response="_updateReviewersList"
+    ></github-ajax>
+
+    <reviewers-list id="list" editable reviewers="[[reviewers]]" on-remove-reviewer="_removeReviewers"></reviewers-list>
+    <set-reviewers hidden$="[[!editable]]" owner="[[pullRequest.user.login]]" on-reviewer-changed="_postReviewer"></set-reviewers>
+
+  </template>
+  <script>
+    /*global ProjectBehavior*/
+    Polymer({
+      is: 'pull-request-reviewers',
+      behaviors: [ProjectBehavior],
+      properties: {
+        pullRequest: {
+          type: Object,
+          notify: true
+        },
+        editable: Boolean,
+        reviewers: {
+          type: Array,
+          computed: '_getReviewers(pullRequest.requested_reviewers)'
+        }
+      },
+      _removeReviewers: function (e) {
+        this.$.removeReviewers.body = {
+          reviewers: [e.detail.login]
+        }
+        this.$.removeReviewers.generateRequest();
+      },
+      _postReviewer: function (e) {
+        var reviewer = e.detail.value;
+        if (reviewer && this.reviewers.indexOf(reviewer) === -1) {
+          this.$.postReviewers.body = {
+
+            reviewers: [reviewer]
+          }
+          this.$.postReviewers.generateRequest();
+        }
+      },
+      _getReviewers: function (reviewers) {
+        return reviewers.map(function (reviewer) {
+          return {
+            login: reviewer.login,
+            // TODO(Tim): Extract LGTM from backend
+            approved: false,
+            avatar_url: reviewer.avatar_url
+          };
+        });
+      },
+      _updateReviewersList: function (e) {
+        this.set('pullRequest.requested_reviewers', e.detail.response.requested_reviewers);
+        this.fire('reviewers-updated', e.detail.response);
+      }
+    });
+  </script>
+</dom-module>
