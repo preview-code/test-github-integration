@@ -1,0 +1,49 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/paper-input/paper-input.html">
+<link rel="import" href="../../../bower_components/iron-icon/iron-icon.html">
+
+<dom-module id="search-box">
+  <template>
+    <style>
+      :host {
+        display: block;
+        --paper-input-container-input: {
+          font-size: 16px;
+        };
+      }
+
+      .search-box {
+        text-align: center;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      paper-input {
+        display: inline-block;
+        --paper-input-container-focus-color: var(--anchor-color);
+      }
+    </style>
+    <div class="search-box">
+      <paper-input placeholder="Search" type="search" value="{{value}}">
+        <div prefix>
+          <iron-icon icon="search"></iron-icon>
+        </div>
+      </paper-input>
+    </div>
+  </template>
+  <script>
+    Polymer({
+      is: 'search-box',
+      properties: {
+        value: {
+          type: String,
+          notify: true
+        }
+      }
+    });
+  </script>
+</dom-module>

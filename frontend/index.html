@@ -1,0 +1,36 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+<head>
+  <base href="/" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script src="bower_components/webcomponentsjs/webcomponents-lite.min.js"></script>
+  <script>
+    window.Polymer = window.Polymer || {};
+    window.Polymer.dom = 'shadow';
+    window.Polymer.lazyRegister = true;
+  </script>
+  <link rel="import" href="bower_components/polymer/polymer.html">
+
+  <link rel="import" href="src/preview-app.html">
+  <link rel="import" href="src/styles/app-theme.html">
+</head>
+<body>
+  <preview-app></preview-app>
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker
+      .register('/service-worker.js')
+      .then(function() {
+        console.log('Service Worker Registered');
+      });
+  }
+  </script>
+</body>
+</html>

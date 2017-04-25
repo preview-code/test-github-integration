@@ -1,0 +1,49 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../diff/diff.html">
+
+<dom-module id="pull-request-changes">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      pull-request-diff {
+        max-width: 100%;
+        z-index: 1;
+        will-change: max-width;
+      }
+    </style>
+    <pull-request-diff id="diff" data-route="diff" diff="[[diff]]"
+      ordered-groups="{{orderedGroups}}" base-url="[[baseUrl]]"
+      pull-request="[[pullRequest]]" github-user="[[githubUser]]"
+      group-comments="{{groupComments}}"></pull-request-diff>
+  </template>
+  <script>
+    Polymer({
+      is: 'pull-request-changes',
+      properties: {
+        githubUser: Object,
+        diff: String,
+        baseUrl: String,
+        number: Number,
+        project: Object,
+        orderedGroups: Array,
+        groupComments: {
+          type: Array,
+          notify: true
+        },
+        pullRequest: Object
+      }
+    });
+  </script>
+</dom-module>

@@ -1,0 +1,198 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+
+<!-- Load these elements first to have fetch sub-pages as fast as possible -->
+<link rel="import" href="../bower_components/iron-lazy-pages/iron-lazy-pages.html">
+<link rel="import" href="../bower_components/app-route/app-location.html">
+<link rel="import" href="../bower_components/app-route/app-route.html">
+<link rel="import" href="ajax/firebase-authentication.html">
+
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-styles/color.html">
+<link rel="import" href="../bower_components/paper-card/paper-card.html">
+<link rel="import" href="../bower_components/paper-tabs/paper-tab.html">
+<link rel="import" href="../bower_components/paper-tabs/paper-tabs.html">
+<link rel="import" href="../bower_components/paper-spinner/paper-spinner.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+
+<link rel="stylesheet" href="../bower_components/font-roboto/roboto.html">
+<link rel="import" href="../bower_components/github-ajax/github-ajax.html">
+<link rel="import" href="ajax/backend-ajax.html">
+
+<dom-module id="preview-app">
+  <template>
+    <style>
+      :host {
+        display: block;
+        height: 100%;
+        font-family: 'Roboto', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        color: var(--primary-text-color);
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .spacer {
+        @apply --layout;
+        @apply --layout-flex-auto;
+        @apply --layout-center-center;
+      }
+
+      .main {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      iron-lazy-pages {
+        flex: 1;
+        display: flex;
+      }
+
+      .loading {
+        margin: auto;
+        height: 50px;
+        width: 100%;
+        text-align: center;
+      }
+
+      .loading span {
+        display: block;
+        margin-bottom: 10px;
+      }
+
+      paper-spinner {
+        height: 50px;
+        width: 50px;
+      }
+    </style>
+    <app-location route="{{route}}"></app-location>
+    <app-route route="{{route}}" pattern="/:page" data="{{page}}" tail="{{tail}}"></app-route>
+
+    <github-ajax id="authenticatedAjax"></github-ajax>
+    <firebase-authentication id="firebase" loading="{{firebaseLoading}}" user="{{firebaseUser}}"></firebase-authentication>
+
+    <backend-ajax 
+      id="postComment" 
+      on-response="_onCommentPosted"
+      ></backend-ajax>
+
+    <github-ajax
+      id="ajaxGithubUser"
+      url="https://api.github.com/user"
+      last-response="{{githubUser}}"
+      on-github-response="_onGithubUserResponse"
+      ></github-ajax>
+
+    <div class="main">
+      <div class="loading" hidden$="[[!firebaseLoading]]">
+        <span>Logging in...</span>
+        <paper-spinner active></paper-spinner>
+      </div>
+
+      <iron-lazy-pages selected="[[page.page]]" attr-for-selected="data-route" fallback-selection="404" hidden$="[[firebaseLoading]]">
+        <template is="iron-lazy-page" data-route="" path="src/home-page.html">
+          <home-page></home-page>
+        </template>
+        <template is="iron-lazy-page" data-route="projects" path="src/projects/projects-page.html">
+          <projects-page route="{{tail}}" github-user="[[githubUser]]"></projects-page>
+        </template>
+        <template is="iron-lazy-page" data-route="404">
+          Oops you hit a 404!
+
+          <a href="/">Head back home</a>
+        </template>
+      </iron-lazy-pages>
+    </div>
+  </template>
+  <script>
+    Polymer({
+      is: 'preview-app',
+      properties: {
+        firebaseLoading: {
+          type: Boolean,
+          value: false
+        },
+        githubUser: Object,
+        page: Object,
+        currentRequest: Object
+      },
+      listeners: {
+        'github-token': '_setToken',
+        'go-login-github': '_signInWithGitHub',
+        'check-signed-in-failed': '_toHome',
+        'sign-out': '_signOut',
+        'signed-out': '_toHome',
+        'signed-in': '_storeToken',
+        'add-comment': '_addComment'
+      },
+      
+      observers: [
+        '_setPageAfterTail(tail)'
+      ],
+
+      _onGithubUserResponse: function(e) {
+        e.detail.firebaseUser = this.firebaseUser;
+      },
+
+      _equals: function (one, other) {
+        return one === other;
+      },
+
+      _signOut: function () {
+        this.$.firebase.signOut();
+      },
+
+      _signInWithGitHub: function (e) {
+        this.$.firebase.doSignIn(e.detail);
+      },
+
+      _storeToken: function (e) {
+        this.$.authenticatedAjax.accessToken = e.detail;
+        this.$.ajaxGithubUser.generateRequest();
+      },
+      _setToken: function (e) {
+        this._storeToken(e);
+        this.newPage = 'projects';
+        this.set('page.page', 'projects');
+      },
+
+      _toHome: function () {
+        this.page = {
+          page: ''
+        };
+        // To get around the timing issue when app-route has not yet parsed the location
+        this.newPage = '';
+      },
+      _setPageAfterTail: function () {
+        if (this.newPage !== undefined) {
+          this.set('page.page', this.newPage);
+          this.newPage = undefined;
+        }
+      },
+      
+      _updateBackendPath: function (project, number, type) {
+        return project.owner + '/' + project.name + '/pulls/' + number + '/comments/' + type;
+      },
+
+      _addComment: function (e) {
+        var newComment = e.detail.comment;
+        this.$.postComment.refurl = this._updateBackendPath(newComment.project, newComment.number, newComment.type);
+        delete newComment.type;
+        delete newComment.project;
+        delete newComment.number;
+        this.$.postComment.body = newComment;
+        this.currentRequest = e.detail;
+        this.$.postComment.generateRequest();
+      },
+      
+      _onCommentPosted: function () {
+        this.currentRequest.onSuccess(this.githubUser);
+      }
+    });
+  </script>
+</dom-module>

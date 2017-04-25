@@ -1,0 +1,107 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<dom-module id="tag-list-item">
+  <template>
+    <style>
+      :host {
+        --tag-color: #bbb;
+        overflow: hidden;
+      }
+
+      li {
+        overflow-wrap: break-word;
+        list-style-type: none;
+        line-height: 24px;
+        font-size: 0.9em;
+        margin: 3px 12px;
+        color: var(--text-color);
+        padding: 0 6px 0 0;
+        background-color: var(--tag-color);
+        border-radius: 5px;
+        box-shadow: 1px 1px 1px 1px #bbb;
+      }
+
+      li:before {
+        content: "";
+        float: left;
+        top: 0;
+        margin-left: -10px;
+        width: 0;
+        height: 0;
+        border-color: transparent var(--tag-color) transparent transparent;
+        border-style: solid;
+        border-width: 12px 12px 12px 0;
+      }
+
+      :host([small]) li {
+        display: inline;
+        padding: 3px 6px;
+        margin: 3px;
+      }
+
+      :host([small]) li:before,
+      :host([small]) li:after {
+        display: none;
+      }
+    </style>
+    <li>
+      <content></content>
+    </li>
+  </template>
+  <script>
+    Polymer({
+      is: 'tag-list-item',
+      properties: {
+        backgroundcolor: {
+          type: String,
+          observer: '_updateColor'
+        },
+        small: {
+          type: Boolean,
+          value: false
+        }
+      },
+      _updateColor: function (color) {
+        this.customStyle['--tag-color'] = '#' + color;
+        //Selects a text color (black/white) depending on background color
+        //Source: http://stackoverflow.com/a/4726403/4760422
+        var textcolor = 'white'
+        if ((255 - ((parseInt(color.substring(0, 2), 16) * 0.299) +
+          (parseInt(color.substring(2, 4), 16) * 0.587) +
+          (parseInt(color.substring(4, 6), 16) * 0.114))) < 105) {
+          textcolor = '#555'
+        }
+        this.customStyle['--text-color'] = textcolor;
+        this.updateStyles();
+      }
+    });
+  </script>
+</dom-module>
+
+<dom-module id="tags-list">
+  <template>
+    <style>
+      :host > ul {
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        flex-direction: row;
+      }
+    </style>
+
+    <ul>
+      <content></content>
+    </ul>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'tags-list'
+    });
+  </script>
+</dom-module>
