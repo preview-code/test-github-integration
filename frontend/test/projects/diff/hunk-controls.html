@@ -1,0 +1,165 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>hunk-controls-tests</title>
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+  <script src='../../../bower_components/iron-test-helpers/mock-interactions.js'></script>
+  <script src='test-diffs.js'></script>
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/diff/hunk-controls.html'>
+
+</head>
+
+<body>
+
+  <test-fixture id="basic">
+    <template>
+      <hunk-controls></hunk-controls>
+    </template>
+  </test-fixture>
+
+  <script>
+    suite('<hunk-controls>', function () {
+      var elem, button;
+
+      Polymer({
+        is: 'mocked-firebase-document',
+        properties: {
+          path: {
+            type: String,
+            observer: '_updatePath'
+          },
+          data: {
+            type: Object,
+            notify: true
+          }
+        },
+        _updatePath: function (newPath) {
+          assert.equal(newPath, 'owner/name/pulls/42/hunkApprovals/hunkId');
+          this.data = {
+            user2: true
+          };
+        }
+      });
+
+      setup(function () {
+        replace('firebase-document').with('mocked-firebase-document');
+        elem = fixture('basic');
+        elem.project = {
+          owner: 'owner',
+          name: 'name'
+        };
+        elem.githubUser = {
+          login: 'user2'
+        };
+        elem.pullRequest = {
+          number: 42,
+          requested_reviewers: [
+            {
+              login: 'user1'
+            },
+            {
+              login: 'user2'
+            }
+          ],
+          head: {
+            sha: 'sha',
+            repo: {
+              html_url: 'https://preview-code.com'
+            }
+          },
+          base: {repo: {owner: {login: 'owner'}, name: 'name'}}
+        };
+        elem.hunk = {
+          id: 'hunkId',
+          file: {
+            name: 'hunk'
+          },
+          code: '',
+          comments: []
+        };
+        elem.collapsed = false;
+        elem._approvals = {};
+        button = elem.$$('[icon="icons:thumb-up"]');
+      });
+
+      test('user can approve as reviewer', function () {
+        assert.equal(button.hidden, false);
+      });
+
+      test('user can not approve when no reviewer', function () {
+        elem.githubUser = { login: 'user3' };
+        assert.equal(button.hidden, true);
+      });
+
+      test('user can approve in revewer list', function () {
+        assert.equal(button.hidden, false);
+      });
+
+
+      test('has the correct values when adding comments', function (done) {
+        var e = new Event('add-comment');
+        var body = 'body of comment';
+        var position = 12;
+        e.detail = {comment: {body: body, position: position}};
+
+        elem.addEventListener('add-comment', function (e) {
+          assert.equal(e.detail.comment.sha, elem.pullRequest.head.sha);
+          assert.equal(e.detail.comment.path, elem.hunk.file.name);
+          assert.equal(e.detail.comment.project, elem.project);
+          assert.equal(e.detail.comment.number, elem.pullRequest.number);
+          assert.equal(e.detail.comment.body, body);
+          assert.equal(e.detail.comment.position, position);
+          done();
+        });
+
+        elem._addComment(e);
+      })
+
+      suite('with backend interaction', function () {
+        var server;
+
+        setup(function () {
+          elem._setProject({
+            owner: 'owner',
+            name: 'name'
+          });
+          elem.hunk = {
+            id: 'hunkId',
+            file: {
+              name: 'hunk'
+            },
+            code: '',
+            comments: []
+          };
+        });
+
+        test('posts data when reviewer approves', function (done) {
+          server = sinon.fakeServer.create();
+          server.respondWith(
+            'POST',
+            /.*\/owner\/name\/pulls\/42\/approve.*/,
+            function (xhr) {
+              expect(xhr.requestBody).to.equal('{"hunkId":"hunkId","isApproved":true}');
+              done();
+            }
+          );
+          MockInteractions.tap(button);
+          server.respond();
+
+        });
+      });
+    });
+  </script>
+</body>
+
+</html>

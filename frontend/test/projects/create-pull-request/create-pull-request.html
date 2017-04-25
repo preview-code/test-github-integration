@@ -1,0 +1,45 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>create-pull-request-tests</title>
+
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+  <script src='../../../bower_components/iron-test-helpers/mock-interactions.js'></script>
+
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/create-pull-request/create-pull-request.html'>
+
+</head>
+
+<body>
+
+  <test-fixture id='create-pull-request-fixture'>
+    <template>
+      <project-create-pull-request></project-create-pull-request>
+    </template>
+  </test-fixture>
+
+  <script>
+    suite('<create-pull-request>', function () {
+      var createPullRequest;
+
+      setup(function () {
+        createPullRequest = fixture('create-pull-request-fixture');
+        createPullRequest.branches = [{ name: 'branch1' }, { name: 'branch2' }];
+      });
+
+    });
+  </script>
+
+</body>
+
+</html>

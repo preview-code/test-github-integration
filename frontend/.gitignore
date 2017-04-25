@@ -1,0 +1,7 @@
+bower_components/
+node_modules/
+token.json
+coverage/
+build/
+*.log
+*.pem

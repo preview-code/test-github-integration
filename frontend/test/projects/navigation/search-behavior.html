@@ -1,0 +1,84 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>search-behavior tests</title>
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/navigation/search-behavior.html'>
+  <link rel='import' href='../../../bower_components/polymer/polymer.html'>
+
+</head>
+
+<body>
+
+  <script>
+    /*global SearchBehavior*/
+    HTMLImports.whenReady(function () {
+      Polymer({
+        is: 'test-search-behavior',
+        behaviors: [SearchBehavior]
+      });
+    });
+
+    suite('<search-behavior>', function () {
+      var elem;
+      var items;
+
+      setup(function () {
+        elem = document.createElement('test-search-behavior');
+        elem.getFields = function (testData) {
+          return [testData.name, testData.owner];
+        }
+        items = [{ name: 'hello', owner: 'world' }, { name: 'hi', owner: 'bye' }]
+      });
+
+      test('matches on exact word on first field', function () {
+        var outcome = elem.search(items, 'hello');
+        assert.deepEqual([items[0]], outcome);
+      });
+
+      test('matches on exact word on second field', function () {
+        var outcome = elem.search(items, 'world');
+        assert.deepEqual([items[0]], outcome);
+      });
+
+      test('matches on part of word', function () {
+        var outcome = elem.search(items, 'ye');
+        assert.deepEqual([items[1]], outcome);
+      });
+
+      test('matches on letter', function () {
+        var outcome = elem.search(items, 'e');
+        assert.deepEqual(items, outcome);
+      });
+
+      test('does not match if it is not a substring of any value', function () {
+        var outcome = elem.search(items, 'nothing');
+        assert.deepEqual([], outcome);
+      });
+
+      test('shows all items with empty string search', function () {
+        var outcome = elem.search(items, '');
+        assert.deepEqual(items, outcome);
+      });
+
+      test('has default search function if getFields is not defined', function () {
+        var elem = document.createElement('test-search-behavior');
+        var outcome = elem.search(items, 'nothing');
+        assert.deepEqual(items, outcome);
+      });
+    })
+  </script>
+
+</body>
+
+</html>

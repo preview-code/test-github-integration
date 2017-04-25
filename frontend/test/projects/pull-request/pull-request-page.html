@@ -1,0 +1,139 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>pull-request-page tests</title>
+
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+  <script src='../../../bower_components/iron-test-helpers/mock-interactions.js'></script>
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/pull-request/pull-request-page.html'>
+
+</head>
+
+<body>
+
+  <test-fixture id='basic'>
+    <template>
+      <pull-request-page></pull-request-page>
+    </template>
+  </test-fixture>
+
+  <script>
+    /*global ProjectBehavior*/
+    suite('<pull-request-page>', () => {
+      var examplePull = {
+        number: 1,
+        body: 'Hello *markdown*',
+        state: 'open',
+        user: {
+          html_url: 'https://example.com/',
+          login: 'txsmith'
+        },
+        head: {
+          label: 'txsmith:pull-branch'
+        },
+        base: {
+          label: 'preview-app:master',
+          repo: {
+            name: 'name',
+            owner: {
+              login: 'login'
+            }
+          }
+        },
+        created_at: '2016-05-25T00:31:28Z',
+        requested_reviewers: [{
+          html_url: 'https://example.com/',
+          login: 'reviewer'
+        }],
+        _links: {
+          statuses: {
+            href: 'https://example.com'
+          }
+        }
+      };
+
+      var elem;
+
+      setup(() => {
+        // Prevent elements from poking the internet
+        window.fetch = () => new Promise(() => {});
+        
+        elem = fixture('basic');
+        ProjectBehavior.setProject({ 'owner': 'Test', 'name': 'test' });
+      });
+
+      test('triggers ajax for diff when PR changes', function (done) {
+        stub('github-ajax', {
+          generateRequest: function() {
+            if (this.id === 'ajaxDiff') {
+              done();
+            }
+          }
+        });
+
+        elem.selectedPull = examplePull;
+      });
+
+      test('has pull-request-general-information', () => {
+        assert.isOk(get('pull-request-general-information'));
+      });
+
+      test('has pull-request-diff', () => {
+        assert.isOk(get('pull-request-changes'));
+      });
+
+      test('has pull-request-commits', () => {
+        assert.isOk(get('pull-request-commits'));
+      });
+
+      test('has user element', () => {
+        assert.isOk(get('a-user'));
+      });
+
+      test('has head branch element', () => {
+        var headElem = get('.head');
+        assert.equal(headElem.tagName, 'BRANCH-TAG')
+      });
+
+      test('has base branch element', () => {
+        var baseElem = get('.base')
+        assert.equal(baseElem.tagName, 'BRANCH-TAG')
+      });
+
+      test('sets user Object to <a-user> element', () => {
+        var userElem = get('a-user');
+        elem.selectedPull = examplePull;
+        assert.deepEqual(userElem.user, examplePull.user);
+      });
+
+      test('sets base branch to <branch-tag> element', () => {
+        var baseElem = get('.base');
+        elem.selectedPull = examplePull;
+        assert.deepEqual(baseElem.branch, examplePull.base.label);
+      });
+
+      test('sets base branch to <branch-tag> element', () => {
+        var headElem = get('.head');
+        elem.selectedPull = examplePull;
+        assert.deepEqual(headElem.branch, examplePull.head.label);
+      });
+
+      var get = function (selector) {
+        return Polymer.dom(elem.root).querySelector(selector);
+      }
+    });
+  </script>
+
+</body>
+
+</html>
