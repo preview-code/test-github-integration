@@ -1,0 +1,56 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../bower_components/iron-selector/iron-selector.html">
+<link rel="import" href="../../bower_components/util/elements/list-item-label.html">
+
+<!--
+Small button for a branch which can be selected by setting selectable to true.
+-->
+<dom-module id="branch-tag">
+  <template>
+    <style>
+      :host {
+        font-family: 'Roboto Mono';
+        font-size: 12px;
+        font-weight: 300;
+      }
+
+      span.selectable.true::after {
+        content: "";
+        vertical-align: middle;
+        display: inline-block;
+        border: 4px solid;
+        margin-left: 4px;
+        border-right-color: transparent;
+        border-bottom-color: transparent;
+        border-left-color: transparent;
+      }
+    </style>
+    <list-item-label type="box">
+      <span class$="selectable [[selectable]]">[[branch]]</span>
+    </list-item-label>
+  </template>
+  <script>
+    Polymer({
+      is: 'branch-tag',
+      properties: {
+        /**
+         * The branch name of this button.
+         * @type {String}
+         */
+        branch: String,
+        /**
+         * If the branch should be selected (styled).
+         * @type {Boolean}
+         */
+        selectable: {
+          type: Boolean,
+          value: false
+        }
+      }
+    });
+  </script>
+</dom-module>

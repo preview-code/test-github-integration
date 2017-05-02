@@ -1,0 +1,122 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../project-behavior.html">
+
+<dom-module id="reviewers-list">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 6px
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .lgtm.true {
+        transform: scale(1);
+      }
+
+      .lgtm {
+        transform: scale(0);
+        -webkit-transition: all 0.3s ease;
+        -moz-transition: all 0.3s ease;
+        -ms-transition: all 0.3s ease;
+        -o-transition: all 0.3s ease;
+        transition: all 0.3s ease;
+        fill: var(--primary-background-color);
+        padding: 4px;
+        width: 16px;
+        height: 16px;
+        background-color: var(--primary-action-green);
+        border-radius: 13px;
+      }
+
+      .reviewer {
+        width: 40px;
+        height: 40px;
+        padding: 6px;
+      }
+
+      :host([small]) .reviewer {
+        width: 32px;
+        height: 32px;
+      }
+
+      .reviewer:hover paper-icon-button {
+        display: block;
+      }
+
+      .reviewer .image {
+        -webkit-box-shadow: 0 0 4px 0 rgba(0, 0, 0, 0.2);
+        box-shadow: 0 0 4px 0 rgba(0, 0, 0, 0.2);
+        border-radius: 9px;
+        background-repeat: no-repeat;
+        background-size: 100%;
+        width: 100%;
+        height: 100%;
+      }
+
+      paper-icon-button {
+        display: none;
+        color: white;
+        background-color: var(--primary-action-red);
+        padding: 2px;
+        width: 24px;
+        height: 24px;
+        border-radius: 12px;
+      }
+
+      .icons {
+        position: relative;
+        display: flex;
+        justify-content: space-between;
+        top: -10px;
+        left: -10px;
+        width: calc(100% + 20px);
+      }
+    </style>
+
+    <template is="dom-repeat" items="[[reviewers]]" as="reviewer">
+      <div class="reviewer" title$="[[reviewer.login]]">
+        <div class="image" style$="background-image: url([[reviewer.avatar_url]]); ">
+          <div class="icons">
+            <iron-icon class$="lgtm [[reviewer.approved]]" icon="icons:thumb-up"></iron-icon>
+            <paper-icon-button hidden$="[[!editable]]" title$="Unassign [[reviewer.login]]" on-tap="_removeReviewers" icon="icons:clear"></paper-icon-button>
+          </div>
+        </div>
+      </div>
+    </template>
+  </template>
+  <script>
+    Polymer({
+      is: 'reviewers-list',
+      properties: {
+        small: {
+          type: Boolean,
+          value: false
+        },
+        editable: {
+          type: Boolean,
+          value: false
+        },
+        reviewers: {
+          type: Array,
+          value: function () {
+            return [];
+          }
+        }
+      },
+      _removeReviewers: function (e) {
+        this.fire('remove-reviewer', e.model.reviewer);
+      }
+    });
+  </script>
+</dom-module>

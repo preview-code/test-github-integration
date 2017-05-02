@@ -1,0 +1,530 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>hunk-sorter tests</title>
+
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+  <script src='test-diffs.js'></script>
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/diff/hunk-sorter.html'>
+
+</head>
+
+<body>
+
+  <test-fixture id='basic'>
+    <template>
+      <hunk-sorter></hunk-sorter>
+    </template>
+  </test-fixture>
+
+  <script>
+    /*global testDiffs*/
+    suite('<hunk-sorter> group unit', function () {
+      var sorter;
+
+      setup(function () {
+        sorter = fixture('basic');
+        sorter._remoteOrdering = {};
+      });
+
+      test('has default group when there is no ordering on firebase', function () {
+        sorter.rawHunks = testDiffs;
+        assert.equal(0, sorter.orderedGroups.length);
+        assert.equal(testDiffs.length, sorter.unorderedGroup.diff.length);
+      });
+
+      test('has default ordering when there is no ordering on firebase', function () {
+        sorter.rawHunks = testDiffs;
+        assert.equal(testDiffs.length, sorter.getOrdering()[0].diff.length);
+      });
+
+      test('orders new hunks into unorderedGroup', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        assert.deepEqual(testDiffs[0], sorter.unorderedGroup.diff[0]);
+      });
+
+      test('adds group to the front', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        sorter.addGroup('01');
+        sorter.addGroup('02');
+        assert.equal('02', sorter.orderedGroups[0].info.title);
+        assert.equal('01', sorter.orderedGroups[1].info.title);
+      });
+
+      test('adds group to the front of ordering', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        var id1 = sorter.addGroup('01');
+        sorter.addHunkToGroup(testDiffs[0], id1, 0);
+        var id2 = sorter.addGroup('02');
+        sorter.addHunkToGroup(testDiffs[1], id2, 0);
+        assert.equal(id2, sorter.getOrdering()[0].id);
+        assert.equal(id1, sorter.getOrdering()[1].id);
+      });
+
+      test('adds new empty group', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        sorter.addGroup('01');
+        assert.equal(0, sorter.orderedGroups[0].diff.length);
+      });
+
+      test('removes group by id', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        var id = sorter.addGroup('group');
+        sorter.removeGroup(id);
+        assert.equal(0, sorter.orderedGroups.length);
+      });
+
+      test('removes group by id from ordering', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        var id = sorter.addGroup('group');
+        sorter.removeGroup(id);
+        assert.equal(1, sorter.getOrdering().length);
+      });
+
+      test('does not remove too much', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        sorter.addGroup('01');
+        sorter.addGroup('02');
+        sorter.addGroup('03');
+        sorter.removeGroup(sorter.orderedGroups[0].id);
+        assert.equal(2, sorter.orderedGroups.length);
+      });
+
+      test('does not remove too much from ordering', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        var id1 = sorter.addGroup('01');
+        sorter.addHunkToGroup(testDiffs[0], id1, 0);
+        var id2 = sorter.addGroup('02');
+        sorter.addHunkToGroup(testDiffs[1], id2, 0);
+        var id3 = sorter.addGroup('03');
+        sorter.addHunkToGroup(testDiffs[2], id3, 0);
+        sorter.removeGroup(sorter.orderedGroups[0].id);
+        assert.equal(3, sorter.getOrdering().length);
+      });
+
+      test('remove ignores incorrect group', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        sorter.addGroup('01');
+        sorter.removeGroup('non-existing');
+        assert.equal(1, sorter.orderedGroups.length);
+      });
+
+      test('can remove middle group', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        sorter.addGroup('01');
+        sorter.addGroup('02');
+        sorter.addGroup('03');
+        sorter.removeGroup(sorter.orderedGroups[1].id);
+        assert.equal('01', sorter.orderedGroups[1].info.title);
+      });
+
+      test('can remove middle group from ordering', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        var id1 = sorter.addGroup('01');
+        sorter.addHunkToGroup(testDiffs[0], id1, 0);
+        var id2 = sorter.addGroup('02');
+        sorter.addHunkToGroup(testDiffs[1], id2, 0);
+        var id3 = sorter.addGroup('03');
+        sorter.addHunkToGroup(testDiffs[2], id3, 0);
+        sorter.removeGroup(sorter.orderedGroups[1].id);
+        assert.equal(id1, sorter.getOrdering()[1].id);
+      });
+
+      test('can not remove default group', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        sorter.addGroup('bla');
+        var id = sorter.unorderedGroup.id
+        sorter.removeGroup(id);
+        assert.equal(id, sorter.unorderedGroup.id);
+      });
+
+      test('can not remove default group from ordering', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        var id1 = sorter.addGroup('bla');
+        sorter.addHunkToGroup(testDiffs[0], id1, 0);
+        var id = sorter.unorderedGroup.id
+        sorter.removeGroup(id);
+        assert.equal(2, sorter.getOrdering().length);
+      });
+
+      test('fills the default group when assigning unsorted hunks', function () {
+        sorter.rawHunks = testDiffs;
+        sorter.addGroup('bla');
+        assert.equal(testDiffs.length, sorter.unorderedGroup.diff.length);
+      });
+
+      test('fills the default group in ordering when assigning unsorted hunks', function () {
+        sorter.rawHunks = testDiffs;
+        assert.equal(testDiffs.length, sorter.getOrdering()[0].diff.length);
+      });
+
+      test('adds hunk to correct group', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        assert.equal(1, sorter.orderedGroups[0].diff.length);
+      });
+
+      test('adds hunk to correct group in ordering', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        assert.equal(1, sorter.getOrdering()[0].diff.length);
+      });
+
+      test('cannot add hunk to non-existing group', function () {
+        sorter.rawHunks = testDiffs;
+        sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], 'illegal-group-id', 0);
+        assert.equal(0, sorter.orderedGroups[0].diff.length);
+      });
+
+      test('does add hunk to non-existing group in ordering', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.addHunkToGroup(testDiffs[0], 'illegal-group-id', 0);
+        assert.equal(1, sorter.getOrdering()[0].diff.length);
+      });
+
+      test('can not add hunk to default group', function () {
+        sorter.rawHunks = [];
+        var id = sorter.unorderedGroup.id;
+        sorter.addHunkToGroup(testDiffs[1], id, 0);
+        assert.equal(0, sorter.unorderedGroup.diff.length);
+      });
+
+      test('does not add hunk to default group in ordering', function () {
+        sorter.rawHunks = [testDiffs[0]];
+        var id = sorter.unorderedGroup.id;
+        sorter.addHunkToGroup(testDiffs[1], id, 0);
+        assert.equal(1, sorter.getOrdering()[0].diff.length);
+      });
+
+      test('adds hunk to correct location in group', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        var expectedIndex = 1, expectedHunk = testDiffs[2];
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.addHunkToGroup(testDiffs[1], id, 1);
+        sorter.addHunkToGroup(expectedHunk, id, expectedIndex);
+        assert.deepEqual(expectedHunk, sorter.orderedGroups[0].diff[expectedIndex]);
+      });
+
+      test('adds hunk to correct location in ordering', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        var expectedIndex = 1;
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.addHunkToGroup(testDiffs[1], id, 1);
+        sorter.addHunkToGroup(testDiffs[2], id, expectedIndex);
+        assert.deepEqual(getHunkId(testDiffs[2]), sorter.getOrdering()[0].diff[expectedIndex]);
+      });
+
+      test('removes hunk from correct group', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.addHunkToGroup(testDiffs[1], id, 0);
+        sorter.removeHunkFromGroup(id, testDiffs[0]);
+        assert.equal(1, sorter.orderedGroups[0].diff.length);
+      });
+
+      test('does not remove hunk from wrong group', function () {
+        sorter.rawHunks = testDiffs;
+        var id1 = sorter.addGroup('group-1');
+        var id2 = sorter.addGroup('group-2');
+        sorter.addHunkToGroup(testDiffs[0], id1, 0);
+        sorter.addHunkToGroup(testDiffs[0], id2, 0);
+        sorter.removeHunkFromGroup(id1, testDiffs[0]);
+        assert.equal(1, sorter.orderedGroups[0].diff.length);
+      });
+
+
+      test('removes hunk from correct group in ordering', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.addHunkToGroup(testDiffs[1], id, 0);
+        sorter.removeHunkFromGroup(id, testDiffs[0]);
+        assert.equal(1, sorter.getOrdering()[0].diff.length);
+      });
+
+      test('cannot remove non-existing hunk from group', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.removeHunkFromGroup(id, testDiffs[1]);
+        assert.equal(1, sorter.orderedGroups[0].diff.length);
+      });
+
+      test('does not remove non-existing hunk from ordering', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.removeHunkFromGroup(id, testDiffs[1]);
+        assert.equal(1, sorter.getOrdering()[0].diff.length);
+      });
+
+      test('can remove hunk from default group', function () {
+        sorter.rawHunks = testDiffs;
+        sorter.removeHunkFromGroup(sorter.unorderedGroup.id, testDiffs[0]);
+        assert.equal(testDiffs.length - 1, sorter.unorderedGroup.diff.length);
+      });
+
+      test('removes hunk from default group in ordering', function () {
+        sorter.rawHunks = testDiffs;
+        sorter.removeHunkFromGroup(sorter.unorderedGroup.id, testDiffs[0]);
+        assert.equal(testDiffs.length - 1, sorter.getOrdering()[0].diff.length);
+      });
+
+      test('does not remove group if it is not empty', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.removeGroupIfEmpty(id);
+        assert.equal(1, sorter.orderedGroups.length);
+      });
+
+      test('removes group when if it is empty', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.removeGroupIfEmpty(id);
+        assert.equal(0, sorter.orderedGroups.length);
+      });
+
+      test('removes group from ordering when it becomes empty', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.removeGroupIfEmpty(id);
+        assert.equal(2, sorter.getOrdering().length);
+      });
+
+      test('moves correct hunk inside orderedGroups', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.addHunkToGroup(testDiffs[1], id, 1);
+        sorter.moveHunk(id, 0, 1);
+        assert.deepEqual(testDiffs[0], sorter.orderedGroups[0].diff[1]);
+        assert.deepEqual(testDiffs[1], sorter.orderedGroups[0].diff[0]);
+      });
+
+      test('cannot move hunks inside unorderedGroup', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.unorderedGroup.id;
+        sorter.moveHunk(id, 0, 1);
+        assert.deepEqual(testDiffs[0], sorter.unorderedGroup.diff[0]);
+        assert.deepEqual(testDiffs[1], sorter.unorderedGroup.diff[1]);
+      });
+
+      test('moves correct hunk inside ordering', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.addHunkToGroup(testDiffs[1], id, 1);
+        sorter.moveHunk(id, 0, 1);
+        assert.deepEqual(getHunkId(testDiffs[0]), sorter.getOrdering()[0].diff[1]);
+        assert.deepEqual(getHunkId(testDiffs[1]), sorter.getOrdering()[0].diff[0]);
+      });
+
+      test('does not move hunk outside bounds in orderedGroups', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.addHunkToGroup(testDiffs[1], id, 1);
+        sorter.moveHunk(id, 0, 2);
+        assert.deepEqual(testDiffs[0], sorter.orderedGroups[0].diff[1]);
+        assert.deepEqual(testDiffs[1], sorter.orderedGroups[0].diff[0]);
+      });
+
+      test('does not move hunk for same position', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.addHunkToGroup(testDiffs[1], id, 1);
+        sorter.moveHunk(id, 0, 0);
+        assert.deepEqual(testDiffs[0], sorter.orderedGroups[0].diff[0]);
+        assert.deepEqual(testDiffs[1], sorter.orderedGroups[0].diff[1]);
+      });
+
+      test('does not move hunk outside bounds in ordering', function () {
+        sorter.rawHunks = testDiffs;
+        var id = sorter.addGroup('group');
+        sorter.addHunkToGroup(testDiffs[0], id, 0);
+        sorter.addHunkToGroup(testDiffs[1], id, 1);
+        sorter.moveHunk(id, 0, 2);
+        assert.deepEqual(getHunkId(testDiffs[0]), sorter.getOrdering()[0].diff[1]);
+        assert.deepEqual(getHunkId(testDiffs[1]), sorter.getOrdering()[0].diff[0]);
+      });
+
+      test('correctly moves group', function () {
+        sorter.rawHunks = testDiffs;
+        var id1 = sorter.addGroup('new-group1');
+        var id2 = sorter.addGroup('new-group2');
+        sorter.moveGroup(0, 1);
+        assert.equal(id2, sorter.orderedGroups[1].id);
+        assert.equal(id1, sorter.orderedGroups[0].id);
+      });
+
+      test('correctly moves group inside ordering', function () {
+        sorter.rawHunks = testDiffs;
+        var id1 = sorter.addGroup('new-group1');
+        sorter.addHunkToGroup(testDiffs[0], id1, 0);
+        var id2 = sorter.addGroup('new-group2');
+        sorter.addHunkToGroup(testDiffs[1], id2, 0);
+
+        sorter.moveGroup(0, 1);
+        assert.equal(id2, sorter.getOrdering()[1].id);
+        assert.equal(id1, sorter.getOrdering()[0].id);
+      });
+
+      test('does not move group outside bounds', function () {
+        sorter.rawHunks = testDiffs;
+        var idFirst = sorter.addGroup('new-group1');
+        sorter.addHunkToGroup(testDiffs[0], idFirst, 0);
+        var idLast = sorter.addGroup('new-group2');
+        sorter.addHunkToGroup(testDiffs[1], idLast, 0);
+
+        sorter.moveGroup(0, 10);
+        assert.deepEqual(idFirst, sorter.orderedGroups[0].id);
+        assert.deepEqual(idLast, sorter.orderedGroups[1].id);
+      });
+
+      test('does not move group for same position', function () {
+        sorter.rawHunks = testDiffs;
+        var idFirst = sorter.addGroup('new-group');
+        sorter.addHunkToGroup(testDiffs[0], idFirst, 0);
+        var idLast = sorter.addGroup('new-group2');
+        sorter.addHunkToGroup(testDiffs[1], idLast, 0);
+
+        sorter.moveGroup(0, 0);
+        assert.deepEqual(idFirst, sorter.getOrdering()[1].id);
+        assert.deepEqual(idLast, sorter.getOrdering()[0].id);
+      });
+
+      test('does not move group outside bounds inside ordering', function () {
+        sorter.rawHunks = testDiffs;
+        var idFirst = sorter.addGroup('new-group');
+        sorter.addHunkToGroup(testDiffs[0], idFirst, 0);
+        var idLast = sorter.addGroup('new-group2');
+        sorter.addHunkToGroup(testDiffs[1], idLast, 0);
+
+        sorter.moveGroup(0, 10);
+        assert.deepEqual(idFirst, sorter.getOrdering()[0].id);
+        assert.deepEqual(idLast, sorter.getOrdering()[1].id);
+      });
+
+      test('move does not change the amount of groups', function () {
+        sorter.rawHunks = testDiffs;
+        sorter.addGroup('new-group');
+        sorter.moveGroup(1, 0);
+        assert.deepEqual(1, sorter.orderedGroups.length);
+      });
+
+      test('getOrdering filters empty groups', function () {
+        sorter.rawHunks = testDiffs;
+        sorter.addGroup('new-group1');
+        assert.deepEqual(1, sorter.getOrdering().length);
+      });
+
+      suite('interacts with Firebase', function () {
+        var data = {
+          'groups': [{
+            'diff': ['YSwwLDE='],
+            'id': 'c1987394-4733-4d18-ba7f-c78eee2f112f',
+            'info': {
+              'description': 'Some description',
+              'title': 'First group!'
+            }
+          }, {
+            'diff': ['YiwxLDE='],
+            'id': 'c1987394-4733-4d18-ba7f-c78eee2f113f',
+            'info': {
+              'description': 'World',
+              'title': 'Hello'
+            }
+          }],
+          'lastChanged': '14 June on some time you do not want to know'
+        }
+
+        Polymer({
+          is: 'mocked-firebase-document',
+          properties: {
+            path: {
+              type: String,
+              observer: '_updatePath'
+            },
+            data: {
+              type: Object,
+              notify: true
+            }
+          },
+          _updatePath: function (newPath) {
+            assert.equal(newPath, 'owner/name/pulls/42/ordering');
+            this.data = data;
+          }
+        });
+
+        setup(function () {
+          replace('firebase-document').with('mocked-firebase-document');
+          sorter = fixture('basic');
+          sorter.rawHunks = testDiffs;
+        });
+
+        test('sorts hunks according to ordering', function () {
+          sorter.pullRequest = {
+            number: 42,
+            base: { repo: { owner: { login: 'owner' }, name: 'name' } }
+          };
+          var ordered = sorter.getOrdering();
+          var firstGroup = ordered[0];
+          assert.equal(firstGroup.info.description, 'Some description');
+          assert.equal(firstGroup.info.title, 'First group!');
+          assert.equal(firstGroup.diff.length, 1);
+          assert.equal(firstGroup.diff[0], 'YSwwLDE=');
+          var secondGroup = ordered[1];
+          assert.equal(secondGroup.info.description, 'World');
+          assert.equal(secondGroup.info.title, 'Hello');
+          assert.equal(secondGroup.diff.length, 1);
+          assert.equal(secondGroup.diff[0], 'YiwxLDE=');
+        });
+
+        test('does not sort when there are no groups stored', function () {
+          var oldData = data;
+          data = {
+            groups: [],
+            lastChanged: 'yesterday'
+          };
+          sorter.pullRequest = {
+            number: 42,
+            base: { repo: { owner: { login: 'owner' }, name: 'name' } }
+          };
+          data = oldData;
+          var ordered = sorter.getOrdering();
+          assert.equal(ordered.length, 1);
+        });
+      });
+
+      var getHunkId = function (hunk) {
+        return btoa(hunk.file.name + ',' +
+          hunk.beforeStart + ',' +
+          hunk.afterStart);
+      }
+    });
+  </script>
+
+</body>
+
+</html>
