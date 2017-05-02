@@ -1,0 +1,450 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../bower_components/app-route/app-route.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../bower_components/iron-icons/editor-icons.html">
+<link rel="import" href="../../bower_components/iron-lazy-pages/iron-lazy-pages.html">
+<link rel="import" href="../../bower_components/util/behaviors/reset-view-state-behavior.html">
+<link rel="import" href="../../bower_components/github-ajax/github-ajax.html">
+<link rel="import" href="../list-items/preview-list.html">
+<link rel="import" href="project-behavior.html">
+<link rel="import" href="navigation/list-navigation.html">
+<link rel="import" href="pull-request/pull-request-page.html">
+<link rel="import" href="no-project-selected.html">
+<link rel="import" href="project-overview-page.html">
+
+<dom-module id="projects-page">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        width: 100%;
+        flex-direction: column;
+      }
+
+      .content {
+        flex: 1;
+        display: flex;
+        max-width: 100%;
+      }
+
+      iron-lazy-pages {
+        flex: 1;
+        width: 100%;
+        overflow: auto;
+        background-color: var(--secondary-background-color);
+        will-change: width;
+      }
+
+      .filler {
+        flex: 1;
+        max-width: 0;
+        will-change: max-width;
+        transition: max-width 0.4s ease;
+        background-color: var(--secondary-background-color);
+      }
+
+      list-navigation:not([list-class='no-list']) + .filler {
+        max-width: var(--project-list-width);
+      }
+
+      paper-tabs {
+        --paper-tabs-selection-bar-color: var(--secondary-action-red);
+        margin-left: -55px;
+        color: var(--secondary-action-red);
+        font-size: 13px;
+        flex: 1;
+      }
+
+      paper-tab {
+        @apply --layout-flex-none;
+        padding: 0;
+        --paper-tab-ink: var(--secondary-action-red);
+      }
+
+      paper-tab a {
+        @apply --layout-horizontal;
+        @apply --layout-center-center;
+        text-decoration: none;
+        text-transform: uppercase;
+        color: var(--primary-text-color);
+        font-weight: 500;
+        padding: 0 20px;
+        height: 100%;
+      }
+
+      .main-header {
+        z-index: 100;
+        height: var(--header-height);
+        display: flex;
+        align-items: center;
+        background-color: var(--primary-background-color);
+        -webkit-box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.25);
+        box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.25);
+      }
+      .signout-button {
+        height: 75%;
+        text-transform: none;
+        padding: 0;
+        margin-left: auto;
+      }
+      .signout-button:hover {
+        background: var(--anchor-hover-color);
+      }
+      .repo-list-toggle,
+      .pull-list-toggle {
+        width: 28px;
+        height: 28px;
+        padding: 3px;
+        border-radius: 15%;
+        margin-left: 8px;
+        opacity: 0.5;
+      }
+      .repo-list-toggle[active],
+      .pull-list-toggle[active] {
+        opacity: 1;
+        color: white;
+        background: var(--anchor-color);
+      }
+    </style>
+    <app-route route="{{route}}" pattern="/:owner/:name" data="{{projectOwnerAndName}}" tail="{{nameTail}}" active="{{projectSelected}}"></app-route>
+    <app-route route="[[nameTail]]" pattern="/:subpage" data="{{subPage}}"></app-route>
+    <app-route route="{{nameTail}}" pattern="/pulls/:number" data="{{routePullNumber}}" tail="{{prTail}}" active="{{pullRequestSelected}}"></app-route>
+
+    <github-ajax
+      id="ajaxRepoPullRequests"
+      url="[[_repoPullRequestsPath]]"
+      headers='{"Accept": "application/vnd.github.black-cat-preview+json"}'
+      last-response="{{_lastPullRequestsResponse}}"
+      on-github-response="_appendPullRequests"></github-ajax>
+
+    <github-ajax
+      id="ajaxPullRequest"
+      url="[[_pullRequestPath]]"
+      headers='{"Accept": "application/vnd.github.black-cat-preview+json"}'
+      last-response="{{selectedPull}}"></github-ajax>
+
+    <github-ajax
+      id="ajaxAssignees"
+      url="[[_repoApiPath]]/assignees"
+      ></github-ajax>
+
+    <github-ajax
+      id="ajaxUserRepos"
+      url="https://api.github.com/user/repos"
+      on-github-response="_onProjectsResponse"
+      ></github-ajax>
+
+    <firebase-document
+      id="firebase"
+      app-name="preview-code"
+      path="users/[[githubUser.firebaseUser.uid]]/projects"
+      data="{{savedProjects}}"
+      on-data-changed="_onSavedProjectsResponse"
+      ></firebase-document>
+
+    <github-ajax
+      id="getProject"
+      url="https://api.github.com/repos/[[projectOwnerAndName.owner]]/[[projectOwnerAndName.name]]"
+      ></github-ajax>
+
+    <div class="main-header">
+      <paper-icon-button class="repo-list-toggle" toggles icon="icons:view-list" active="{{showProjectsList}}"></paper-icon-button>
+      <paper-icon-button class="pull-list-toggle" toggles icon="editor:merge-type" active="{{showPullList}}"></paper-icon-button>
+      <paper-button class="signout-button" on-tap="_signout">Sign out</paper-button>
+    </div>
+    <div class="content">
+      <list-navigation
+          show-projects-list="{{showProjectsList}}"
+          show-pull-list="{{showPullList}}" selected-pull="[[selectedPull]]"
+          name-tail="{{nameTail}}" project="[[projectOwnerAndName]]"
+          projects="[[projects]]" pullrequests="[[pullrequests]]"
+          on-select-project="_selectProject"></list-navigation>
+      <div class="filler"></div>
+      <iron-lazy-pages
+          class="project"
+          selected="[[currentView]]"
+          attr-for-selected="data-route"
+          fallback-selection="no-selected"
+          on-tap="_ensureOneOpenList"
+          selected-attribute="active">
+
+        <template is="iron-lazy-page" data-route="no-selected">
+          <no-project-selected></no-project-selected>
+        </template>
+
+        <template is="iron-lazy-page" data-route="overview">
+          <project-overview-page 
+            tabindex="0"
+            route="[[nameTail]]" 
+            pullrequests="[[pullrequests]]" 
+            github-user="[[githubUser]]"></project-overview-page>
+        </template>
+
+        <template is="iron-lazy-page" data-route="pulls">
+          <pull-request-page 
+            selected-pull="[[selectedPull]]" 
+            route="[[prTail]]" 
+            github-user="[[githubUser]]"></pull-request-page>
+        </template>
+
+      </iron-lazy-pages>
+    </div>
+
+  </template>
+  <script>
+    /*global Project ProjectBehavior ResetViewStateBehavior*/
+    Polymer({
+      is: 'projects-page',
+      behaviors: [ResetViewStateBehavior],
+      properties: {
+        githubUser: Object,
+        route: {
+          type: Object,
+          notify: true
+        },
+
+        pullrequests: {
+          type: Array,
+          value: function () {
+            return [];
+          }
+        },
+
+        _repoApiPath: {
+          type: String,
+          computed: '_computeRepoApiPath(projectOwnerAndName)'
+        },
+
+        _repoPullRequestsPath: {
+          type: String,
+          computed: '_computeRepoPullRequestsPath(projectOwnerAndName, prStateFilter)'
+        },
+
+        _pullRequestPath: {
+          type: String,
+          computed: '_computePullRequestPath(routePullNumber.number)',
+          observer: '_fetchPullRequest'
+        },
+
+        showProjectsList: {
+          type: Boolean,
+          value: true
+        },
+
+        showPullList: Boolean,
+
+        projects: {
+          type: Array,
+          value: function () {
+            return [];
+          }
+        },
+
+        savedProjects: {
+          type: Object
+        },
+
+        activeProject: {
+          type: Project,
+          readOnly: true
+        },
+
+        prStateFilter: {
+          type: String,
+          value: 'open'
+        },
+
+        currentView: {
+          type: String,
+          computed: '_computeCurrentView(projectSelected, subPage)'
+        }
+      },
+      observers: [
+        'chooseProject(projectOwnerAndName.*)',
+        '_showPullsList(projectSelected)',
+        '_retrieveNewPullRequests(_repoPullRequestsPath)'
+      ],
+      listeners: {
+        'PRStateFilter-updated': '_changePRStateFilter',
+        'pull-request-list-end-reached': '_fetchMorePullRequests',
+        'fetch-projects': '_refreshProjects',
+        'update-favorite-projects': '_updateFavoriteProjects',
+        'close-projects-list': '_closeProjectsList'
+      },
+
+      _closeProjectsList: function () {
+        this.showProjectsList = false;
+      },
+
+      _refreshProjects: function() {
+        this.$.ajaxUserRepos.generateRequest();
+      },
+
+      _updateFavoriteProjects: function() {
+        const temp = this.savedProjects;
+        this.savedProjects = {};
+        this.savedProjects = temp;
+      },
+
+      _onProjectsResponse: function() {
+        const ajax = this.$.ajaxUserRepos;
+        if (ajax.canFetchMore) {
+          ajax.fetchMore();
+        } else {
+          this._matchFavoriteProjectsWithGithub(ajax.allResults);
+        }
+      },
+
+      _matchFavoriteProjectsWithGithub: function (githubProjects) {
+        if (!this.savedProjects) return;
+        const newSavedProjects = {};
+        
+        githubProjects.forEach(ghProject => {
+          const base64Name = btoa(ghProject.full_name)
+          if (this.savedProjects[base64Name]) {
+            newSavedProjects[base64Name] = this.savedProjects[base64Name];
+          } else {
+            newSavedProjects[base64Name] = {
+              name: ghProject.name,
+              favorite: true,
+              organization: ghProject.owner.type === 'Organization',
+              owner: {
+                login: ghProject.owner.login,
+                avatar_url: ghProject.owner.avatar_url
+              }
+            }
+          }
+        });
+
+        this.savedProjects = newSavedProjects;
+      },
+
+      _onSavedProjectsResponse: function (e) {
+        const displayProjects = [];
+        const savedProjects = e.detail.value;
+        for (var key in savedProjects) {
+          displayProjects.push(savedProjects[key]);
+        }
+
+        this.projects = displayProjects;
+      },
+
+      _signout: function() {
+        this.fire('sign-out');
+      },
+
+      chooseProject: function (projectOwnerAndName) {
+        var owner = projectOwnerAndName.value.owner;
+        var name = projectOwnerAndName.value.name;
+
+        if (owner && name) {
+          if (this.activeProject && this.activeProject.owner === owner && this.activeProject.name === name) {
+            return;
+          }
+          this._setActiveProject(null);
+          const projectAjax = this.$.getProject;
+          const assigneesAjax = this.$.ajaxAssignees;
+
+          Promise.all([
+            projectAjax.generateRequest(),
+            assigneesAjax.generateRequest()
+          ]).then(() => {
+            this._setProject(projectAjax.lastResponse, assigneesAjax.lastResponse);
+          });
+        }
+      },
+
+      _setProject: function (githubResponse, assignees) {
+        this._setActiveProject(new Project(
+          githubResponse.owner.login,
+          githubResponse.name,
+          githubResponse.description,
+          githubResponse.ssh_url,
+          githubResponse.html_url,
+          githubResponse.homepage,
+          assignees
+        ));
+
+        ProjectBehavior.setProject(this.activeProject);
+        this.performReset();
+        this.showPullList = true;
+      },
+
+      _fetchPullRequest: function (path) {
+        if (path) {
+          this.$.ajaxPullRequest.generateRequest();
+        }
+      },
+
+      _retrieveNewPullRequests: function () {
+        this.pullrequests = [];
+        if (this.projectOwnerAndName.owner) {
+          this.$.ajaxRepoPullRequests.generateRequest();
+        }
+      },
+
+      _selectProject: function(e) {
+        this.set('route.path', '/' + e.detail.owner.login + '/' + e.detail.name + '/activity');
+      },
+
+      _computeCurrentView: function (projectSelected, subPage) {
+        if (!projectSelected) {
+          return 'no-selected';
+        } else if (subPage.subpage === 'activity' || subPage.subpage === 'createpull') {
+          return 'overview';
+        } else {
+          return subPage.subpage;
+        }
+      },
+
+      _ensureOneOpenList: function () {
+        if (this.showProjectsList && this.showPullList) {
+          this.showProjectsList = false;
+        }
+      },
+
+      _showPullsList: function (projectSelected) {
+        this.showPullList = projectSelected;
+      },
+
+      _changePRStateFilter: function (e) {
+        this.prStateFilter = e.detail;
+      },
+
+      _appendPullRequests: function (e) {
+        var response = e.detail.slice();
+        Array.prototype.unshift.apply(response, this.pullrequests);
+        this.notifyPath('pullrequests', response);
+      },
+
+      _fetchMorePullRequests: function() {
+        if (this.pullrequests.length && this.$.ajaxRepoPullRequests.canFetchMore) {
+          this.$.ajaxRepoPullRequests.fetchMore();
+        }
+      },
+
+      _computeRepoApiPath: function(projectOwnerAndName) {
+        if (projectOwnerAndName.owner && projectOwnerAndName.name) {
+          return 'https://api.github.com/repos/' + projectOwnerAndName.owner + '/' + projectOwnerAndName.name;
+        }
+      },
+
+      _computeRepoPullRequestsPath: function (projectOwnerAndName, prStateFilter) {
+        if (projectOwnerAndName.owner && prStateFilter) {
+          return this._repoApiPath + '/pulls?state=' + prStateFilter;
+        }
+      },
+
+      _computePullRequestPath: function (number) {
+        if (number) {
+          return this._repoApiPath + '/pulls/' + number;
+        }
+      }
+    });
+  </script>
+</dom-module>

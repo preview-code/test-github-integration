@@ -1,0 +1,104 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/paper-tabs/paper-tabs.html">
+
+<dom-module id="feature-bar">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        background-color: var(--primary-background-color);
+        z-index: 1;
+        -webkit-box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.25);
+        box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.25);
+      }
+
+      header {
+        padding: 1.5em;
+        padding-bottom: 0;
+        align-self: stretch;
+        transition: all ease 0.3s;
+      }
+
+      paper-tabs {
+        --paper-tabs-selection-bar-color: var(--anchor-color);
+        font-size: 1em;
+      }
+
+      paper-tab {
+        padding: 0;
+        --paper-tab-ink: var(--anchor-color);
+        font-weight: 500;
+      }
+
+      a {
+        @apply(--layout-horizontal);
+        @apply(--layout-center-center);
+        text-decoration: none;
+        color: var(--primary-text-color);
+        padding: 0 1.5em;
+        height: 100%;
+      }
+    </style>
+
+    <header id="header">
+      <content select=".content"></content>
+    </header>
+    <paper-tabs id="tabs" selected="{{selectedFeature}}" attr-for-selected="feature" autoselect>
+    </paper-tabs>
+
+    <div hidden class="skeleton">
+      <content id="skeleton" select="*"></content>
+    </div>
+  </template>
+  <script>
+    Polymer({
+      is: 'feature-bar',
+      properties: {
+        title: String,
+        selectedFeature: {
+          type: String,
+          notify: true
+        },
+        collapsed: {
+          type: Boolean,
+          value: false,
+          reflectToAttribute: true,
+          observer: '_toggleCollapsed'
+        }
+      },
+      attached: function () {
+        this.getContentChildren('#skeleton').forEach(function (featureElem) {
+          var tab = document.createElement('paper-tab');
+          var feature = featureElem.getAttribute('feature');
+          tab.setAttribute('feature', feature);
+
+          for (var i = 0, l = featureElem.children.length; i < l; i++) {
+            tab.appendChild(featureElem.children[i]);
+          }
+          Polymer.dom(this.$.tabs).appendChild(tab);
+        }.bind(this));
+
+        window.requestAnimationFrame(function () {
+          this._toggleCollapsed(this.collapsed);
+        }.bind(this));
+      },
+
+      _toggleCollapsed: function (collapsed) {
+        var header = this.$.header;
+        if (collapsed) {
+          var height = header.getBoundingClientRect().height;
+          header.style.marginTop = (-height) + 'px';
+        } else {
+          header.style.marginTop = 0;
+        }
+      }
+    });
+  </script>
+</dom-module>

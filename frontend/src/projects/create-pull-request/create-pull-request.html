@@ -1,0 +1,204 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/paper-toast/paper-toast.html">
+<link rel="import" href="../../../bower_components/iron-icon/iron-icon.html">
+<link rel="import" href="../../../bower_components/iron-pages/iron-pages.html">
+<link rel="import" href="../../../bower_components/paper-tabs/paper-tabs.html">
+<link rel="import" href="../../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../../bower_components/util/behaviors/reset-view-state-behavior.html">
+<link rel="import" href="../../ajax/backend-ajax.html">
+<link rel="import" href="../diff/diff.html">
+<link rel="import" href="../project-behavior.html">
+<link rel="import" href="create-pull-diff.html">
+<link rel="import" href="create-pull-general-info.html">
+
+<dom-module id="project-create-pull-request">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+      .pageControls {
+        padding: 1em;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .pageControls paper-icon-button {
+        will-change: opacity;
+        transition: opacity 0.3s ease;
+        opacity: 1;
+      }
+
+      .pageControls paper-icon-button[disabled] {
+        opacity: 0;
+      }
+
+      .pageControls paper-tabs {
+        width: 75%;
+      }
+      .pageControls paper-tab {
+        width: 33%;
+      }
+      .pageControls paper-tab:not([disabled]) span {
+        background-color: rgba(0,0,0,0.15);
+      }
+      .pageControls paper-tab.iron-selected span {
+        background-color: var(--accent-color);
+        color: var(--primary-background-color);
+      }
+      .pageControls paper-tab span {
+        transition: all 0.3s ease;
+        width: 2.5em;
+        height: 2.5em;
+        line-height: 2.5em;
+        text-align: center;
+        font-size: 18px;
+        border-radius: 1.75em;
+      }
+
+    </style>
+
+    <backend-ajax
+      id="createPull"
+      refurl="[[backendPath]]"
+      last-response="{{number}}"
+      on-response="_madePulls"
+      on-error="_handlePRCreateError"
+      loading="{{loadingPR}}"
+      ></backend-ajax>
+
+    <div class="pageControls">
+      <paper-icon-button disabled id="prevArrow" icon="icons:chevron-left" on-tap="_prevStep"></paper-icon-button>
+      <paper-tabs selected="{{currentStep}}" no-bar noink>
+        <paper-tab id="step0tab"><span>1</span></paper-tab>
+        <paper-tab disabled=[[!enableStep1]] id="step1tab"><span>2</span></paper-tab>
+      </paper-tabs>
+      <paper-icon-button disabled id="nextArrow" icon="icons:chevron-right" on-tap="_nextStep"></paper-icon-button>
+    </div>
+    <iron-pages selected="[[currentStep]]">
+      <project-create-pull-general-info
+        title="{{title}}"
+        description="{{description}}"
+        diff="{{diff}}"
+        base-branch="{{baseBranch}}"
+        head-branch="{{headBranch}}"
+        enable-next="{{enableStep1}}"
+        back-link="{{backLink}}"
+      ></project-create-pull-general-info>
+      <project-create-pull-diff
+        id="diffView"
+        diff="[[diff]]"
+        base-url="https://github.com/[[project.owner]]/[[project.name]]"
+        project="[[project]]"
+        loading="[[loadingPR]]"
+        ></project-create-pull-diff>
+      </paper-material>
+    </iron-pages>
+
+
+    <paper-toast id="errorToast" horizontal-align="right" horizontal-offset="20"></paper-toast>
+  </template>
+  <script>
+  /*global ProjectBehavior ResetViewStateBehavior*/
+    Polymer({
+      is: 'project-create-pull-request',
+      behaviors: [ProjectBehavior, ResetViewStateBehavior],
+      properties: {
+        title: String,
+        description: String,
+        baseBranch: String,
+        headBranch: String,
+        enableStep1: {
+          type: Boolean,
+          value: false
+        },
+        loadingPR: false,
+
+        backendPath: {
+          type: String,
+          computed: '_updateBackendPath(title, project)'
+        },
+        backLink: Boolean,
+
+        currentStep: {
+          type: Number,
+          observer: '_onStepChange'
+        }
+      },
+      listeners: {
+        'general-info-next': '_gotoStep1',
+        'submit-pull-request': '_createPullRequest'
+      },
+
+      attached: function () {
+        this.currentStep = 0;
+        this.nextMessage = 'Next';
+      },
+
+      resetViewState: function(resetChildren) {
+        this.currentStep = 0;
+        this.nextMessage = 'Next';
+        resetChildren();
+      },
+
+      _gotoStep1: function () {
+        this.currentStep = 1;
+      },
+
+      _nextStep: function () {
+        if (this.currentStep === 0) {
+          this.currentStep++;
+        }
+      },
+      _prevStep: function () {
+        if (this.currentStep === 1) {
+          this.currentStep--;
+        }
+      },
+
+      _onStepChange: function (step) {
+        if (step === 0) {
+          this.$.prevArrow.disabled = true;
+          this.$.nextArrow.disabled = !this.enableStep1;
+        } else if (step === 1) {
+          this.$.prevArrow.disabled = false;
+          this.$.nextArrow.disabled = true;
+        }
+      },
+
+      _createPullRequest: function(e) {
+        this.$.createPull.body = {
+          title: this.title,
+          description: this.description,
+          base: this.baseBranch,
+          head: this.headBranch,
+          metadata: this.backLink,
+          ordering: e.detail.ordering
+        };
+        this.$.createPull.generateRequest();
+      },
+
+      _updateBackendPath: function(title, project) {
+        return project.owner + '/' + project.name + '/pulls/';
+      },
+
+      _madePulls: function() {
+        if (this.number.number !== 0) {
+          var location = '/projects/' + this.project.owner + '/' + this.project.name + '/pulls/' + this.number.number + '/overview'
+          window.location.assign(location);
+        }
+      },
+      
+      _handlePRCreateError: function(e) {
+        var response = e.detail.request.parseResponse();
+        this.$.errorToast.show({text: response ? response.message : 'Could not connect to server.'});
+      }
+    });
+  </script>
+</dom-module>
