@@ -1,0 +1,67 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+
+<script>
+  class Project {
+    constructor(owner, name, description, ssh_url, html_url, homepage, assignees) {
+      if (!owner || !name || !ssh_url || !html_url || assignees === null) {
+        throw new Error('Project can only be instantiated with non-null and non-undefined arguments.');
+      }
+      this.owner = owner;
+      this.name = name;
+      this.description = description;
+      this.ssh_url = ssh_url;
+      this.html_url = html_url;
+      this.homepage = homepage;
+      this.assignees = assignees;
+    }
+  }
+  
+  /*exported ProjectBehavior Project*/
+  /**
+   * @polymerBehavior
+   */
+  var ProjectBehavior = (function () {
+    var instances = [];
+    var _project;
+    return {
+      properties: {
+        project: {
+          type: Project,
+          readOnly: true
+        }
+      },
+
+      attached: function () {
+        instances.push(this);
+        if (_project) {
+          this._setProject(_project);
+        }
+      },
+      
+      detached: function () {
+        var index = instances.indexOf(this);
+        if (!index) {
+          return;
+        }
+        instances.splice(index, 1);
+      },
+
+      setProject: function (project) {
+        Object.freeze(project);
+        _project = project;
+        for (var i = 0, l = instances.length; i < l; i++) {
+          if (instances[i]) {
+            instances[i]._setProject(project);
+          } else {
+            instances.splice(i, 1);
+          }
+        }
+      }
+    };
+  })();
+</script>

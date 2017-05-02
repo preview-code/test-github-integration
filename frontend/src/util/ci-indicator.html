@@ -1,0 +1,85 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+
+<dom-module id="ci-indicator">
+  <template>
+    <style>
+      iron-icon {
+        --iron-icon-height: var(--icon-size);
+        --iron-icon-width: var(--icon-size);
+      }
+
+      .icon-failure {
+        fill: var(--primary-action-red);
+      }
+
+      .icon-passed {
+        fill: var(--primary-action-green);
+      }
+
+      .icon-pending {
+        fill: var(--primary-action-orange)
+      }
+      /* We hide by default, to prevent double icons if the data is still loading */
+
+      .icondiv-failure:not(.failure):not(.error) {
+        display: none;
+      }
+
+      .icondiv-passed:not(.success) {
+        display: none;
+      }
+
+      .icondiv-pending:not(.pending) {
+        display: none;
+      }
+    </style>
+    <div class$="icondiv-passed [[status]]">
+      <iron-icon title="CI passed" class="icon-passed" icon="[[iconPassed]]"></iron-icon>
+      <span hidden$="[[!showContent]]">All checks have passed:</span>
+    </div>
+    <div class$="icondiv-failure [[status]]">
+      <iron-icon title="CI failure" class="icon-failure" icon="[[iconFailed]]"></iron-icon>
+      <span hidden$="[[!showContent]]">There are failed checks:</span>
+    </div>
+    <div class$="icondiv-pending [[status]]">
+      <iron-icon title="CI pending" class="icon-pending" icon="[[iconPending]]"></iron-icon>
+      <span hidden$="[[!showContent]]">Not all checks have completed yet:</span>
+    </div>
+  </template>
+  <script>
+    Polymer({
+      is: 'ci-indicator',
+      properties: {
+        status: {
+          type: Object
+        },
+        showContent: {
+          type: Boolean,
+          value: false
+        },
+        size: {
+          type: String,
+          value: '24px'
+        },
+        iconPass: {
+          type: String
+        },
+        iconFailed: {
+          type: String
+        },
+        iconPending: {
+          type: String
+        }
+      },
+      observers: ['_setIconSize(size)'],
+      _setIconSize: function (size) {
+        this.customStyle['--icon-size'] = size;
+      }
+    });
+  </script>
+</dom-module>
