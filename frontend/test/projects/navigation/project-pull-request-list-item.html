@@ -1,0 +1,68 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>project-pull-request-list-item tests</title>
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+  <script src='../../../bower_components/iron-test-helpers/mock-interactions.js'></script>
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/navigation/project-pull-request-list-item.html'>
+
+</head>
+
+<body>
+
+  <test-fixture id="basic">
+    <template>
+      <project-pull-request-list-item></project-pull-request-list-item>
+    </template>
+  </test-fixture>
+  <script>
+    suite('<project-pull-request-list-item>', function () {
+      var elem;
+
+      setup(function () {
+        elem = fixture('basic');
+        elem.pr = {
+          title: 'First PR',
+          status: 'Under review',
+          user: {
+            login: 'User1'
+          },
+          number: 1
+        }
+        elem.issue = {
+          labels: [
+            {
+              name: 'CL Accepted'
+            },
+            {
+              name: 'Work In Progress'
+            }
+          ]
+        };
+      });
+
+      test('shows labels of the pull request', function () {
+        flush(function () {
+          Polymer.dom(elem.root).querySelector('template').render();
+        });
+        var labels = Polymer.dom(elem.root).querySelectorAll('tag-list-item');
+        assert.equal(labels.length, 2);
+        assert.include(labels[0].textContent, 'CL Accepted');
+        assert.include(labels[1].textContent, 'Work In Progress');  
+      });
+    })
+  </script>
+
+</body>
+
+</html>

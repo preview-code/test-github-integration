@@ -1,0 +1,168 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>pull-request-general-information tests</title>
+
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+  <script src='../../../bower_components/iron-test-helpers/mock-interactions.js'></script>
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/pull-request/pull-request-general-information.html'>
+
+</head>
+
+<body>
+
+  <test-fixture id='basic'>
+    <template>
+      <pull-request-general-information></pull-request-general-information>
+    </template>
+  </test-fixture>
+
+  <script>
+    suite('<pull-request-general-information>', function () {
+      var examplePull = {
+        body: 'Hello *markdown*',
+        state: 'open',
+        number: 42,
+        user: {
+          html_url: 'https://example.com/',
+          login: 'txsmith'
+        },
+        head: {
+          label: 'txsmith:pull-branch'
+        },
+        base: {
+          label: 'preview-app:master',
+          repo: {
+            owner: {
+              login: 'owner'
+            },
+            name: 'name'
+          }
+        },
+        created_at: '2016-05-25T00:31:28Z',
+        requested_reviewers: [{
+          html_url: 'https://example.com/',
+          login: 'reviewer'
+        }],
+        _links: {
+          statuses: {
+            href: 'https://example.com'
+          }
+        }
+      };
+      var elem, done;
+      var initialcomments = [[], ['one comment'], ['first', 'second']];
+
+
+      setup(function () {
+        elem = fixture('basic');
+
+        stub('github-ajax', {
+          generateRequest: function () {
+            if (this.id === 'ajaxIssue' && done) {
+              done();
+            }
+          }
+        });
+
+        elem.pullRequest = examplePull;
+        elem.comments = [];
+        elem.project = { name: 'project' };
+        elem.githubUser = { name: 'user' };
+      });
+
+      test('triggers ajax for issues when PR changes', function (d) {
+        done = d;
+        elem.pullRequest = {
+          requested_reviewers: [],
+          base: { repo: { owner: { login: 'owner' }, name: 'name' } }
+        };
+      });
+
+      test('has add comments buttom', function () {
+        assert.isOk(get('add-comment'));
+      });
+
+      test('has markdown description element', function () {
+        assert.isOk(get('markdown-input'));
+      });
+
+      test('has reviewers list element', function () {
+        assert.isOk(get('pull-request-reviewers'));
+      });
+
+      test('has tags list element', function () {
+        assert.isOk(get('tags-list'));
+      });
+
+      test('has status element', function () {
+        assert.isOk(get('pr-status'));
+      });
+
+      test('sets description to markdown element', function () {
+        var mdElem = get('markdown-input');
+        assert.equal(mdElem.markdown, examplePull.body);
+      });
+
+      test('has correct values when adding comments', function (done) {
+        elem.addEventListener('add-comment', function (e) {
+          assert.equal(e.detail.comment.body, body);
+          assert.equal(e.detail.comment.project, elem.project);
+          assert.equal(e.detail.comment.number, elem.pullRequest.number);
+          assert.equal(e.detail.comment.type, 'pr');
+          assert.isFunction(e.detail.onSuccess);
+          done();
+        });
+
+        var e = new Event('add-comment');
+        var body = 'body of comment';
+        e.detail = body;
+        elem._addComment(e);
+      });
+
+      initialcomments.forEach(function (comments, index) {
+        test('Adds comment on callback ' + index, function (done) {
+
+          elem.addEventListener('add-comment', function (e) {
+            var length = comments.length;
+            elem.comments = comments;
+            e.detail.onSuccess(elem.githubUser);
+            assert.equal(elem.comments.length, length + 1);
+            assert.equal(elem.comments[length].body, 'body of comment');
+            assert.equal(elem.comments[length].project, elem.project);
+            assert.equal(elem.comments[length].number, elem.pullRequest.number);
+            assert.equal(elem.comments[length].type, 'pr');
+            assert.equal(elem.comments[length].user, elem.githubUser);
+            assert.include(elem.comments[length], e.detail.comment);
+            assert.isDefined(elem.comments[length].created_at);
+            assert.isAtMost(elem.comments[length].created_at.getTime(), new Date().getTime());
+            assert.isAtLeast(elem.comments[length].created_at.getTime(), date);
+            done();
+          });
+
+          var date = new Date().getTime();
+          var e = new Event('add-comment');
+          e.detail = 'body of comment';
+          elem._addComment(e);
+        })
+      });
+
+      var get = function (selector) {
+        return Polymer.dom(elem.root).querySelector(selector);
+      }
+    });
+  </script>
+
+</body>
+
+</html>

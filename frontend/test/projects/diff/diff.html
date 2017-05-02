@@ -1,0 +1,74 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <title>diff test</title>
+
+  <script src="../../../bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+  <script src="../../../bower_components/web-component-tester/browser.js"></script>
+  <script src='../../../bower_components/iron-test-helpers/mock-interactions.js'></script>
+
+  <!-- Step 1: import the element to test -->
+  <link rel="import" href="../../../src/projects/diff/diff.html">
+
+</head>
+
+<body>
+
+  <test-fixture id="basic">
+    <template>
+      <pull-request-diff editable></pull-request-diff>
+    </template>
+  </test-fixture>
+
+  <script>
+    suite('<pull-request-diff> tests', function () {
+      var element;
+      var hunks = [
+        {
+          file: {
+            name: 'header'
+          },
+          fileNameUrl: 'url',
+          diffId: 'diffId',
+          changes: 'changes',
+          linesChanged: {
+            startLineBefore: 0,
+            rangeBefore: 1,
+            startLineAfter: 2,
+            rangeAfter: 3
+          },
+        },
+        {
+          file: {
+            name: 'header2'
+          },
+          fileNameUrl: 'url2',
+          diffId: 'diffId2',
+          changes: 'changes2',
+          linesChanged: {
+            startLineBefore: 0,
+            rangeBefore: 1,
+            startLineAfter: 2,
+            rangeAfter: 3
+          },
+        }
+      ];
+
+      setup(function () {
+        element = fixture('basic');
+        element.hunks = hunks;
+        element.githubUser = {};
+      });
+
+    });
+  </script>
+
+</body>
+
+</html>
