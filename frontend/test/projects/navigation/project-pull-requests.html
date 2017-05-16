@@ -1,0 +1,172 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>project-pull-requests tests</title>
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+  <script src='../../../bower_components/iron-test-helpers/mock-interactions.js'></script>
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/navigation/project-pull-requests.html'>
+
+</head>
+
+<body>
+
+  <test-fixture id="basic">
+    <template>
+      <project-pull-requests></project-pull-requests>
+    </template>
+  </test-fixture>
+  <script>
+    suite('<project-pull-requests>', function () {
+      var elem;
+      var pr1 = {
+        title: 'First PR',
+        status: 'No reviewer assigned',
+        user: {
+          login: 'User1'
+        },
+        number: 1
+      };
+      var pr2 = {
+        title: 'Second PR',
+        status: 'Awaiting contributor response',
+        user: {
+          login: 'User2'
+        },
+        number: 2,
+        labels: [
+          {
+            name: 'CL Accepted'
+          },
+          {
+            name: 'Work In Progress'
+          }
+        ]
+      };
+
+      Polymer({
+        is: 'mocked-firebase-query',
+        properties: {
+          equalTo: {
+            type: String,
+            observer: '_updatePath'
+          },
+          data: {
+            type: Array,
+            value: function () {
+              return []
+            },
+            notify: true
+          }
+        },
+        _updatePath: function (equalTo) {
+          if (equalTo !== 'All') {
+            this.push('data', {
+              $key: '1',
+              status: 'No reviewer assigned'
+            });
+          }
+        }
+      });
+
+      setup(function () {
+        replace('firebase-query').with('mocked-firebase-query');
+        elem = fixture('basic');
+        elem.pullrequests = [pr2, pr1];
+        elem.route = {};
+      });
+
+      test('set status filters list of projects', function (done) {
+        elem.status = 'No reviewer assigned';
+        flush(function () {
+          var prs = Polymer.dom(elem.root).querySelectorAll('project-pull-request-list-item');
+          assert.equal(prs.length, 1);
+          assert.equal(prs[0].pr, pr1);
+          done();
+        });
+      });
+
+      test('set searchWord filters list of projects on title', function (done) {
+        elem.searchWord = 'First';
+        flush(function () {
+          var prs = Polymer.dom(elem.root).querySelectorAll('project-pull-request-list-item');
+          assert.equal(prs.length, 1);
+          assert.equal(prs[0].pr, pr1);
+          done();
+        });
+      });
+
+      test('set searchWord filters list of projects on username', function (done) {
+        elem.searchWord = 'User2';
+        flush(function () {
+          var prs = Polymer.dom(elem.root).querySelectorAll('project-pull-request-list-item');
+          assert.equal(prs.length, 1);
+          assert.equal(prs[0].pr, pr2);
+          done();
+        });
+      });
+
+      test('set searchWord filters list of projects on pr labels', function (done) {
+        elem.searchWord = 'work';
+        flush(function () {
+          var prs = Polymer.dom(elem.root).querySelectorAll('project-pull-request-list-item');
+          assert.equal(prs.length, 1);
+          assert.equal(prs[0].pr, pr2);
+          done();
+        });
+      });
+
+      test('filters on both status and search', function (done) {
+        elem.status = 'Under review';
+        elem.searchWord = 'Second';
+        flush(function () {
+          var prs = Polymer.dom(elem.root).querySelectorAll('project-pull-request-list-item');
+          assert.equal(prs.length, 0);
+          done();
+        });
+      });
+
+      test('selecting pr resets search', function () {
+        elem.searchWord = 'User1';
+        elem.selectedPull = pr2;
+        assert.equal(elem.searchWord, '');
+      });
+
+      test('pressing space on project does not load project', function (done) {
+        flush(function () {
+          var prs = Polymer.dom(elem.root).querySelectorAll('project-pull-request-list-item');
+          MockInteractions.pressSpace(prs[0]);
+          Polymer.Base.async(function () {
+            assert.equal(elem.route.path, undefined);
+            done();
+          });
+        });
+      });
+
+      test('shows closed prs when toggle button', function () {
+        var toggle = Polymer.dom(elem.root).querySelector('paper-toggle-button');
+        MockInteractions.tap(toggle);
+        assert.equal('closed', elem.prStateFilter);
+      });
+
+      test('shows open prs when toggle button twice', function () {
+        var toggle = Polymer.dom(elem.root).querySelector('paper-toggle-button');
+        MockInteractions.tap(toggle);
+        MockInteractions.tap(toggle);
+        assert.equal('open', elem.prStateFilter);
+      });
+    })
+  </script>
+
+</body>
+
+</html>

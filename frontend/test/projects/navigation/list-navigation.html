@@ -1,0 +1,68 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<!doctype html>
+<html>
+
+<head>
+  <meta name='viewport' content='width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes'>
+  <title>list-navigation-tests</title>
+
+  <script src='../../../bower_components/webcomponentsjs/webcomponents-lite.min.js'></script>
+  <script src='../../../bower_components/web-component-tester/browser.js'></script>
+  <script src='../../../bower_components/iron-test-helpers/mock-interactions.js'></script>
+
+  <!-- Import the element to test -->
+  <link rel='import' href='../../../src/projects/navigation/list-navigation.html'>
+
+</head>
+
+<body>
+
+  <test-fixture id='list-navigation-fixture'>
+    <template>
+      <list-navigation></list-navigation>
+    </template>
+  </test-fixture>
+
+  <script>
+    suite('<list-navigation>', function () {
+      var listNavigation;
+
+      setup(function () {
+        listNavigation = fixture('list-navigation-fixture');
+        listNavigation.projects = [
+          {
+            'owner': {
+              'login': 'txsmith',
+              'avatar_url': 'https://avatars3.githubusercontent.com/u/5946422?v=3'
+            },
+            'name': 'dragula-element',
+            'favorite': false,
+            'organization': false
+          },
+          {
+            'owner': {
+              'login': 'txsmith',
+              'avatar_url': 'https://avatars3.githubusercontent.com/u/5946422?v=3'
+            },
+            'name': 'vector-bahavior',
+            'favorite': true,
+            'organization': false
+          }
+        ];
+      });
+
+      test('shows no list when both are deselected', function () {
+        listNavigation.showProjectsList = false;
+        listNavigation.showPullList = false;
+        assert.notEqual(getComputedStyle(listNavigation).left, 0);
+      });
+    });
+  </script>
+
+</body>
+
+</html>

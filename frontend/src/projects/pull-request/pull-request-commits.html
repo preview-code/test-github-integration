@@ -1,0 +1,47 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/github-ajax/github-ajax.html">
+<link rel="import" href="pull-request-commit.html">
+
+<dom-module id="pull-request-commits">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.2);
+        background-color: white;
+      }
+    </style>
+    <github-ajax
+      id="ajaxCommits"
+      url="[[pullRequest._links.commits.href]]"
+      per-page="50"
+      last-response="{{commits}}"
+    ></github-ajax>
+
+    <template is="dom-repeat" items="{{commits}}" index-as="index">
+      <pull-request-commit item="[[item]]"></pull-request-commit>
+    </template>
+  </template>
+  <script>
+    Polymer({
+      is: 'pull-request-commits',
+      properties: {
+        pullRequest: Object,
+        commits: Array
+      },
+      observers: [
+        '_fireAjax(pullRequest)'
+      ],
+      _fireAjax: function (pullRequest) {
+        if (pullRequest) {
+          this.$.ajaxCommits.generateRequest();
+        }
+      }
+    });
+  </script>
+</dom-module>

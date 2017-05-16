@@ -1,0 +1,64 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/code-highlighter/code-highlighter.html">
+<link rel="import" href="../../../bower_components/paper-material/paper-material.html">
+<link rel="import" href="../../../bower_components/iron-icon/iron-icon.html">
+<link rel="import" href="../../../bower_components/iron-icons/editor-icons.html">
+
+<dom-module id="hunk-highlighter">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+      paper-material {
+        border-radius: 6px;
+        overflow: hidden;
+      }
+
+      code-highlighter {
+        background: var(--primary-background-color);
+        --line-number-columns: {
+          background: none;
+          color: var(--secondary-text-color);
+        }
+      }
+
+      header {
+        font-family: monospace;
+        font-weight: bold;
+        padding: 8px;
+        background: var(--hunk-header-color);
+        color: white;
+      }
+
+      .dragHandle {
+        cursor: -webkit-grabbing;
+        cursor: -moz-grabbing;
+        cursor: grabbing;
+      }
+    </style>
+
+    <paper-material elevation="1">
+      <header>
+        <iron-icon class="dragHandle" icon="editor:drag-handle"></iron-icon>
+        <span class="filename">[[hunk.file.name]]</span>
+      </header>
+      <code-highlighter code="[[hunk.code]]" before-start="[[hunk.beforeStart]]" after-start="[[hunk.afterStart]]"></code-highlighter>
+    </paper-material>
+
+  </template>
+  <script>
+    Polymer({
+      is: 'hunk-highlighter',
+
+      properties: {
+        hunk: Object
+      }
+    });
+  </script>
+</dom-module>
