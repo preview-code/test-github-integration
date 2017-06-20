@@ -1,0 +1,295 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/app-route/app-route.html">
+<link rel="import" href="../../../bower_components/iron-pages/iron-pages.html">
+<link rel="import" href="../../../bower_components/util/elements/list-item-label.html">
+<link rel="import" href="../../../bower_components/util/elements/a-user.html">
+<link rel="import" href="../../../bower_components/util/behaviors/to-date-string-behavior.html">
+<link rel="import" href="../../../bower_components/util/behaviors/reset-view-state-behavior.html">
+<link rel="import" href="../feature-bar.html">
+<link rel="import" href="../project-behavior.html">
+<link rel="import" href="pull-request-general-information.html">
+<link rel="import" href="pull-request-changes.html">
+<link rel="import" href="pull-request-commits.html">
+<link rel="import" href="get-comments.html">
+
+<dom-module id="pull-request-page">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        background-color: var(--secondary-background-color);
+        height: 100%;
+      }
+
+      :host > div {
+        flex: 1;
+      }
+
+      .description {
+        display: block;
+      }
+
+      .actions {
+        margin-right: 15px;
+      }
+
+      [icon='add'] {
+        border-radius: 20px;
+        background-color: white;
+        color: var(--primary-color);
+      }
+
+      iron-pages {
+        flex: 1;
+        z-index: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      iron-pages > * {
+        display: flex;
+        flex-direction: column;
+        @apply(--constraint-width);
+        margin-bottom: 2em;
+        margin-top: 2em;
+        -webkit-transition: all 0.5s ease;
+        -moz-transition: all 0.5s ease;
+        -ms-transition: all 0.5s ease;
+        -o-transition: all 0.5s ease;
+        transition: all 0.5s ease;
+      }
+
+      feature-bar .content {
+        display: flex;
+      }
+
+      feature-bar .content .title {
+        margin-top: 0;
+      }
+
+      feature-bar .content .title > *:not(:last-child) {
+        margin-right: 0.5em;
+      }
+
+      feature-bar .content .subtitle > *:not(:last-child),
+      feature-bar .content .subtitle a-user {
+        margin-right: 4px;
+      }
+
+      feature-bar .content .title h2 {
+        display: inline;
+        vertical-align: baseline;
+      }
+
+      feature-bar .content .subtitle {
+        font-size: 14px;
+      }
+
+      feature-bar .content > .info {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+        justify-content: space-between;
+        overflow: hidden;
+      }
+
+      feature-bar .content > .info > div > *:not(:last-child) {
+        margin-bottom: 0.5em;
+      }
+
+      feature-bar .content > .info > div {
+        width: 100vw;
+      }
+
+      header > * {
+        vertical-align: middle;
+      }
+
+      list-item-label {
+        margin: 0;
+        font-size: 0.9em;
+        line-height: 1.4em;
+      }
+
+      .state {
+        font-weight: 600;
+        text-transform: capitalize;
+      }
+
+      .state.open {
+        --tag-color: var(--primary-action-green);
+      }
+
+      .state.closed {
+        --tag-color: var(--primary-action-red);
+      }
+
+      .additions,
+      .deletions {
+        font-family: 'Roboto Mono';
+        font-size: 14px;
+        font-weight: 300
+      }
+
+      .additions {
+        margin-left: 0.5em;
+        color: var(--pr-addition-color);
+      }
+
+      .deletions {
+        color: var(--pr-deletion-color);
+      }
+
+      branch-tag {
+        --tag-color: var(--secondary-background-color);
+        --tag-text-color: var(--primary-text-color);
+      }
+
+      .contributor-avatar img {
+        @apply(--avatar-image);
+        width: 64px;
+        height: 64px;
+      }
+
+      .contributor-avatar {
+        -webkit-box-shadow: -20px 0 20px 0px rgb(255, 255, 255);
+        -moz-box-shadow: -20px 0 20px 0px rgb(255, 255, 255);
+        box-shadow: -20px 0 20px 0px rgb(255, 255, 255);
+      }
+    </style>
+
+    <github-ajax
+      id="ajaxDiff"
+      url="[[selectedPull._links.self.href]]"
+      handle-as="text"
+      headers='{"Accept": "application/vnd.github.VERSION.diff"}'
+      last-response="{{diff}}"
+    ></github-ajax>
+
+    <app-route route="{{route}}" pattern="/:page" data="{{page}}" tail="{{tail}}"></app-route>
+    <get-comments groups="{{orderedGroups}}" group-comments="{{groupComments}}" line-comments="{{lineComments}}"
+      pull-request="[[selectedPull]]" general-comments="{{generalComments}}"></get-comments>
+
+      <feature-bar selected-feature={{page.page}}>
+        <div class="content">
+          <div class="info">
+            <div>
+              <div class="title">
+                <h2>[[selectedPull.title]]</h2>
+                <list-item-label class="time-open" type="info" icon="device:access-time">[[toDateString(selectedPull.created_at)]]</list-item-label>
+              </div>
+              <div class="subtitle">
+                <list-item-label class$="state [[selectedPull.state]]" type="box">[[selectedPull.state]]</list-item-label>
+                <span><a-user user="[[selectedPull.user]]"></a-user> wants to merge into</span>
+                <branch-tag class="base" branch="[[baseBranchStr]]"></branch-tag>
+                <span>from</span>
+                <branch-tag class="head" branch="[[headBranchStr]]"></branch-tag>
+                <list-item-label class="additions" type="info">+[[selectedPull.additions]]</list-item-label>
+                <list-item-label class="deletions" type="info">-[[selectedPull.deletions]]</list-item-label>
+              </div>
+            </div>
+          </div>
+          <div class="contributor-avatar">
+            <img src$="[[selectedPull.user.avatar_url]]" alt$="[[selectedPull.user.login]]" />
+          </div>
+        </div>
+        <div feature="overview">
+          <a href$="[[route.prefix]]/overview">Overview</a>
+        </div>
+        <div feature="commits">
+          <a href$="[[route.prefix]]/commits">Commits</a>
+        </div>
+        <div feature="diff">
+          <a href$="[[route.prefix]]/diff">Changes</a>
+        </div>
+      </feature-bar>
+
+      <iron-pages selected="[[page.page]]" attr-for-selected="data-route" fallback-selection="overview" selected-attribute="active">
+        <pull-request-general-information data-route="overview" class="overview" pull-request="{{selectedPull}}"
+          project="[[project]]" comments="{{generalComments}}"></pull-request-general-information>
+          <pull-request-commits data-route="commits" pull-request="[[selectedPull]]" project="[[project]]"></pull-request-commits>
+          <pull-request-changes data-route="diff" diff="[[diff]]" base-url="[[selectedPull.head.repo.html_url]]"
+            pull-request="{{selectedPull}}" github-user="[[githubUser]]" group-comments="{{groupComments}}"></pull-request-changes>
+      </iron-pages>
+  </template>
+  <script>
+    /*global ProjectBehavior*/
+    /*global ToDateStringBehavior*/
+    /*global ResetViewStateBehavior*/
+    Polymer({
+      is: 'pull-request-page',
+      behaviors: [ProjectBehavior, ToDateStringBehavior, ResetViewStateBehavior],
+      observers: [
+        'updateStyles(selectedPull.state)',
+        'updateBranchStrings(selectedPull)',
+        '_setLineComments(lineComments)'
+      ],
+      properties: {
+        githubUser: Object,
+        route: Object,
+        diff: String,
+        selectedPull: {
+          type: Object,
+          observer: '_onSelectedPullChange',
+          notify: true
+        },
+        orderedGroups: Array,
+        generalComments: Array,
+        groupComments: Array,
+        lineComments: Array,
+        baseBranchStr: String,
+        headBranchStr: String,
+        active: {
+          type: Boolean,
+          observer: '_onActiveChange'
+        }
+      },
+
+      _onActiveChange: function (active) {
+        if (!active) {
+          this.performReset();
+        }
+      },
+
+      _getSelectedTab: function (page) {
+        return page;
+      },
+
+      _onSelectedPullChange: function (pullRequest) {
+        this.performReset();
+        this._fetchAjax(pullRequest);
+      },
+
+      _fetchAjax: function (pullRequest) {
+        if (pullRequest) {
+          this.$.ajaxDiff.generateRequest();
+        }
+      },
+
+      updateBranchStrings: function (pullRequest) {
+        var stripped = this._stripCommonRepo(pullRequest.base.label, pullRequest.head.label);
+        this.baseBranchStr = stripped.first;
+        this.headBranchStr = stripped.second;
+      },
+
+      _stripCommonRepo: function (str1, str2) {
+        var branch1 = str1.split(':')
+        var branch2 = str2.split(':')
+        if (branch1[0] === branch2[0]) {
+          return { first: branch1[1], second: branch2[1] }
+        }
+        return { first: str1, second: str2 }
+      },
+      _setLineComments: function (lineComments) {
+        this.selectedPull.lineComments = [];
+        this.set('selectedPull.lineComments', lineComments);
+      }
+    });
+  </script>
+</dom-module>

@@ -1,0 +1,246 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/paper-item/paper-item.html">
+<link rel="import" href="../../../bower_components/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../../../bower_components/paper-menu/paper-menu.html">
+<link rel="import" href="../../../bower_components/paper-toggle-button/paper-toggle-button.html">
+<link rel="import" href="../../../bower_components/iron-media-query/iron-media-query.html">
+<link rel="import" href="../../../bower_components/iron-icon/iron-icon.html">
+<link rel="import" href="../../../bower_components/polymerfire/firebase-query.html">
+
+<link rel="import" href="../../list-items/preview-list.html">
+<link rel="import" href="../pull-request/pull-request-page.html">
+<link rel="import" href="../project-behavior.html">
+<link rel="import" href="project-pull-request-list-item.html">
+<link rel="import" href="search-box.html">
+<link rel="import" href="search-behavior.html">
+
+<dom-module id="project-pull-requests">
+  <template>
+    <style>
+      :host {
+        display: inherit;
+        outline: none;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      paper-dropdown-menu {
+        margin-left: 2px;
+        --paper-input-container-underline-focus: {
+          background-color: var(--anchor-color);
+        }
+        --paper-menu-button-dropdown: {
+          width: 200px;
+        }
+      }
+
+      project-pull-request-list-item {
+        width: 100%;
+      }
+
+      preview-list {
+        max-width: var(--pull-request-list-width);
+        overflow-y: auto;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      h2 {
+        text-align: center;
+      }
+
+      .dropdown {
+        text-align: center;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      input {
+        width: 27%;
+      }
+
+      .header {
+        display: flex;
+        align-items: baseline;
+      }
+
+      .add {
+        color: var(--primary-action-green);
+      }
+
+      search-box {
+        display: inline-block;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .pr-state-switch {
+        margin-left: 75%;
+      }
+    </style>
+    <firebase-query app-name="preview-code" path="/[[project.owner]]/[[project.name]]/pulls" order-by-child="status" equal-to="[[status]]"
+      data="{{_firebaseStatusData}}"></firebase-query>
+
+      <preview-list id="list" on-end-of-list="_retrieveNewPullRequests">
+        <h2>[[project.name]] pull requests
+          <a href$="[[route.prefix]]/createpull">
+            <iron-icon class="add" icon="icons:add-circle-outline" on-tap="_hideProjectsList"></iron-icon>
+          </a>
+        </h2>
+        <paper-toggle-button class="pr-state-switch" on-tap="_setPRStateFilter" checked>[[prStateFilter]]</paper-toggle-button>
+        <div class="header">
+          <search-box value="{{searchWord}}"></search-box>
+          <div class=dropdown>
+            <paper-dropdown-menu label="Pull request status" value="{{status}}">
+              <paper-menu class="dropdown-content">
+                <paper-item>All</paper-item>
+                <paper-item>No reviewer assigned</paper-item>
+                <paper-item>Awaiting reviewer response</paper-item>
+                <paper-item>Under review</paper-item>
+                <paper-item>Awaiting contributor response</paper-item>
+              </paper-menu>
+            </paper-dropdown-menu>
+          </div>
+        </div>
+        <template is="dom-repeat" items="[[_filteredPullRequests]]" as="pr">
+          <a href$="[[route.prefix]]/pulls/[[pr.number]]/overview" tabindex="-1">
+            <project-pull-request-list-item tabindex="0" pr="[[pr]]" selected="[[_equals(selectedPull.number, pr.number)]]" on-tap="maybeSelectPR"></project-pull-request-list-item>
+          </a>
+        </template>
+      </preview-list>
+  </template>
+  <script>
+    /*global SearchBehavior,ProjectBehavior*/
+    Polymer({
+      is: 'project-pull-requests',
+      behaviors: [SearchBehavior, ProjectBehavior],
+      properties: {
+        route: Object,
+        selectedPull: Object,
+        pullrequests: {
+          type: Array
+        },
+        status: {
+          type: String,
+          value: 'All'
+        },
+        prStateFilter: {
+          type: String,
+          value: 'open'
+        },
+        _firebaseStatusData: {
+          type: Array
+        },
+        _filteredPullRequests: {
+          type: Array,
+          value: function () {
+            return []
+          }
+        },
+        getFields: {
+          type: Function,
+          value: function () {
+            return function (prData) {
+              var array = [prData.title, prData.user.login];
+              if (prData.labels !== undefined) {
+                prData.labels.forEach(function (label) {
+                  array.push(label.name);
+                });
+              }
+              return array;
+            };
+          }
+        }
+      },
+      observers: [
+        '_resetSearch(selectedPull)',
+        '_clearTriggers(pullrequests.*)',
+        '_onFirebaseStatusChange(_firebaseStatusData.splices)',
+        '_setInitialPullRequests(pullrequests)',
+        '_filterOnSearchWord(pullrequests, searchWord)'
+      ],
+      attached: function () {
+        this.$.list.setScrollTarget(this);
+      },
+      _filter: function (pullrequests, status, searchWord) {
+        return this.search(pullrequests, searchWord);
+      },
+      _equals: function (one, other) {
+        return one === other;
+      },
+      maybeSelectPR: function (e) {
+        this.set('route.path', '/pulls/' + e.model.pr.number + '/overview');
+        this.fire('close-projects-list');
+      },
+      _resetSearch: function () {
+        this.searchWord = '';
+      },
+      _clearTriggers: function (pullrequests) {
+        if (pullrequests.base.length) {
+          this.$.list.resetEndOfList();
+        }
+      },
+      _retrieveNewPullRequests: function () {
+        this.fire('pull-request-list-end-reached');
+      },
+      _setPRStateFilter: function () {
+        if (this.prStateFilter === 'closed') {
+          this.prStateFilter = 'open'
+        } else {
+          this.prStateFilter = 'closed'
+        }
+        this.fire('PRStateFilter-updated', this.prStateFilter);
+      },
+      _setInitialPullRequests: function (pullrequests) {
+        this._filteredPullRequests = pullrequests;
+      },
+      _filterOnSearchWord: function (pullrequests, searchWord) {
+        var filtered = this.search(pullrequests, searchWord);
+        if (this.status !== 'All') {
+          var status = this.status;
+          filtered = filtered.filter(function (e) {
+            return e._status === status;
+          });
+        }
+        this._filteredPullRequests = filtered;
+      },
+      _onFirebaseStatusChange: function (e) {
+        if (!e) {
+          // Status is All or we did have no status updates, force an update
+          // to potentially reset the list
+          this._filterOnSearchWord(this.pullrequests, this.searchWord);
+          return;
+        }
+        e.indexSplices.forEach(function (s) {
+          var currentPR = this.pullrequests.length - 1;
+          for (var i = s.index, l = s.index + s.addedCount; i < l; i++) {
+            var added = s.object[i];
+            var index = parseInt(added.$key);
+            // Firebase index is ordered from low to high
+            // our list is ordered from high to low
+            while (currentPR > 0 && this.pullrequests[currentPR].number < index) {
+              currentPR--;
+            }
+            var pullrequest = this.pullrequests[currentPR];
+            if (pullrequest.number === index) {
+              pullrequest._status = added.status;
+            }
+          }
+        }, this);
+        this._filterOnSearchWord(this.pullrequests, this.searchWord);
+      },
+
+      _hideProjectsList: function() {
+        this.fire('close-projects-list');
+      }
+    });
+  </script>
+</dom-module>

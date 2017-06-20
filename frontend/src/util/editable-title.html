@@ -1,0 +1,80 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../bower_components/paper-input/paper-input.html">
+
+<dom-module id="editable-title">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+      h2 {
+        font-size: var(--edit-title-font-size);
+        font-weight: var(--edit-title-font-weight);
+        padding: 2px 0;
+        margin: 0;
+      }
+
+      paper-input {
+        --paper-input-container: {
+          padding: 0;
+        }
+        ;
+        --paper-input-container-input: {
+          font-size: 2em;
+          font-size: var(--edit-title-font-size);
+          font-weight: var(--edit-title-font-weight);
+          color: var(--edit-title-color);
+        }
+        ;
+        --paper-input-container-label: {
+          font-size: 2em;
+          font-size: var(--edit-title-font-size);
+          line-height: inherit;
+          color: var(--edit-title-color, --secondary-text-color);
+        }
+        ;
+        --paper-input-container-label-floating: {
+          display: none;
+        }
+        --paper-input-container-color: var(--secondary-background-color);
+        --paper-input-container-focus-color: var(--edit-title-focus-color, --anchor-color);
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+
+    <template is="dom-if" if="[[editable]]">
+      <paper-input no-label-float label="[[label]]" value="{{value}}"></paper-input>
+    </template>
+    <template is="dom-if" if="[[!editable]]">
+      <h2>[[value]]</h2>
+    </template>
+
+  </template>
+  <script>
+    Polymer({
+      is: 'editable-title',
+      properties: {
+        editable: {
+          type: Boolean,
+          value: false
+        },
+        label: {
+          type: String,
+          value: 'Enter a title'
+        },
+        value: {
+          type: String,
+          notify: true
+        }
+      }
+    });
+  </script>
+</dom-module>

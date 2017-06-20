@@ -1,0 +1,231 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/markdown-input/markdown-input.html">
+<link rel="import" href="../../../bower_components/comments/comment-list.html">
+<link rel="Import" href="../../../bower_components/comments/add-comment.html">
+<link rel="import" href="../../util/editable-title.html">
+<link rel="import" href="../../util/collapsible-content.html">
+<link rel="import" href="../project-behavior.html">
+<link rel="import" href="hunk-controls.html">
+
+<dom-module id="pull-request-group">
+  <template>
+    <style>
+      [hidden] {
+        display: none !important;
+      }
+
+      :host {
+        background-color: var(--primary-background-color);
+        -webkit-box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.2);
+        box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+        display: block;
+        position: relative;
+        margin: 2em 0;
+        padding: 1em 2em;
+      }
+
+      header {
+        min-height: 2em;
+      }
+
+      markdown-input {
+        margin: 1em 0;
+      }
+
+      markdown-input[disabled] {
+        margin-bottom: 0;
+      }
+
+      .content {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .showMoreBtn {
+        margin: 0 auto;
+      }
+    </style>
+
+    <collapsible-content collapse="{{collapsed}}">
+      <div class="header">
+        <editable-title id="editTitleDialog" editable="[[editable]]" value="{{group.info.title}}"></editable-title>
+      </div>
+      <div class="content">
+        <markdown-input hidden$="[[hideDescription]]" disabled="[[!editable]]" label="Enter a description for these changes. Markdown is supported."
+          markdown="{{group.info.description}}"></markdown-input>
+        
+        <div id="groupHunks"></div>
+        
+        <template is="dom-if" if="[[_showMoreButton]]">
+          <paper-button class="showMoreBtn" raised on-tap="_renderSomeHunks">Show more...</paper-button>
+        </template>
+
+        <collapsible-content class="toggle-comments" collapse="{{collapseComments}}" hidden$="[[editable]]">
+          <span class="header">comments</span>
+          <comment-list list="[[comments]]"></comment-list>
+          <add-comment on-add-comment="_addComment" project="[[project]]"></add-comment>
+        </collapsible-content>
+      </div>
+    </collapsible-content>
+  </template>
+  <script>
+    /*global ProjectBehavior*/
+    Polymer({
+      is: 'pull-request-group',
+      behaviors: [ProjectBehavior],
+      properties: {
+        githubUser: Object,
+        editable: {
+          type: Boolean,
+          value: false
+        },
+        group: Object,
+        pullRequest: Object,
+        collapseComments: {
+          type: Boolean,
+          value: true
+        },
+        hideDescription: {
+          type: Boolean,
+          value: true,
+          computed: '_shouldHideDescription(editable, group)'
+        },
+        collapsed: {
+          type: Boolean,
+          value: false,
+          reflectToAttribute: true
+        },
+        groupComments: {
+          type: Array,
+          notify: true
+        },
+        comments: {
+          type: Array,
+          notfiy: true,
+          value: function () {
+            return [];
+          }
+        },
+
+        _unrenderedHunks: {
+          type: Array
+        },
+        _showMoreButton: {
+          type: Boolean,
+          value: false
+        }
+      },
+      observers: [
+        '_resetCollapsed(group)',
+        '_updateComments(groupComments.*, group)',
+        '_updateUnrenderedHunks(group.diff.*)',
+      ],
+      attached: function () {
+        this.$.editTitleDialog.addEventListener('confirm', this._renameGroup.bind(this));
+      },
+
+      _updateUnrenderedHunks: function(diffChange) {
+        this._unrenderedHunks = diffChange.base;
+        const container = this.$.groupHunks;
+        while (container.firstChild) {
+          container.removeChild(container.firstChild);
+        }
+        this._renderSomeHunks();
+      },
+
+      _renderSomeHunks: function () {
+        const viewHeight = document.documentElement.clientHeight;
+        var lastElemY = 0;
+        var hunk, elem;
+
+        const hunkContainer = this.$.groupHunks;
+
+        const loop = () => {
+          if (this._unrenderedHunks.length > 0
+              && lastElemY < 3*viewHeight) {
+            hunk = this._unrenderedHunks.pop();
+            elem = this._createHunkElem(hunk);
+            hunkContainer.appendChild(elem);
+            lastElemY = elem.getBoundingClientRect().top;
+            window.requestAnimationFrame(loop);
+          } else {
+            if (this._unrenderedHunks.length > 0) {
+              this._showMoreButton = true;
+            } else {
+              this._showMoreButton = false;
+            }
+          }
+        }
+        loop();
+      },
+
+      _createHunkElem: function (hunk) {
+        const hunkElem = document.createElement('hunk-controls');
+        hunkElem.hunk = hunk;
+        hunkElem.pullRequest = this.pullRequest;
+        hunkElem.githubUser = this.githubUser;
+        return hunkElem;
+      },
+
+      _shouldHideDescription: function (editable, group) {
+        return !editable && (!group || !group.info.description);
+      },
+      _renameGroup: function (e) {
+        if (this.group) {
+          this.fire('rename', {
+            groupId: this.group.id,
+            title: e.detail
+          });
+        }
+      },
+      _fire: function (name) {
+        return function (e) {
+          e.stopPropagation();
+          this.fire(name, {
+            hunk: e.item.children[1].hunk,
+            groupId: this.group.id,
+            oldIndex: e.oldIndex,
+            newIndex: e.newIndex
+          });
+        }
+      },
+      _resetCollapsed: function () {
+        this.collapsed = false;
+        this.collapseComments = true;
+      },
+      _updateComments: function (groupComments, group) {
+        if (group) {
+          var newComments = [];
+          for (var i = 0; i < groupComments.base.length; i++) {
+            if (groupComments.base[i].groupID === group.id) {
+              newComments.push(groupComments.base[i].comment);
+            }
+          }
+          this.comments = newComments;
+        }
+      },
+      _addComment: function (e) {
+        var newComment = {};
+        newComment.body = e.detail;
+        newComment.project = this.project;
+        newComment.number = this.pullRequest.number;
+        newComment.groupID = this.group.id;
+        newComment.type = 'group';
+        e.stopPropagation();
+
+        var submit = function (user) {
+          newComment.user = user;
+          newComment.created_at = new Date();
+          this.push('comments', newComment);
+        }.bind(this);
+
+        this.fire('add-comment', { comment: newComment, onSuccess: submit });
+      }
+    });
+  </script>
+</dom-module>
