@@ -1,0 +1,77 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="group.html">
+<link rel="import" href="diff-parser.html">
+<link rel="import" href="hunk-sorter.html">
+
+<dom-module id="pull-request-diff">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+    <diff-parser diff="[[diff]]" base-url="[[baseUrl]]" hunks="{{hunks}}" comments="[[pullRequest.lineComments]]"></diff-parser>
+    <hunk-sorter id="sorter" raw-hunks="[[hunks]]" ordered-groups="{{orderedGroups}}" unordered-group="{{unorderedGroup}}"
+      pull-request="[[pullRequest]]"></hunk-sorter>
+
+      <div id="hunkGroups">
+        <template is="dom-repeat" items="[[orderedGroups]]">
+          <pull-request-group id$="group-[[item.id]]" group="[[item]]" editable="[[editable]]" pull-request="[[pullRequest]]"
+            group-comments="{{groupComments}}" github-user="[[githubUser]]"></pull-request-group>
+        </template>
+        <template is="dom-if" if="[[unorderedGroup.diff.length]]">
+          <pull-request-group id$="group-unordered" group="[[unorderedGroup]]" pull-request="[[pullRequest]]" github-user="[[githubUser]]"></pull-request-group>
+        </template>
+      </div>
+
+  </template>
+  <script>
+    Polymer({
+      is: 'pull-request-diff',
+      properties: {
+        githubUser: Object,
+        editable: {
+          type: Boolean,
+          value: false
+        },
+        baseUrl: String,
+        diff: String,
+        hunks: {
+          type: Array,
+          value: function () {
+            return [];
+          }
+        },
+        orderedGroups: {
+          type: Array,
+          notify: true
+        },
+        _groupTitles: Array,
+        groupComments: {
+          type: Array,
+          notify: true
+        },
+        pullRequest: Object
+      },
+
+      observers: [
+        '_setGroupTitles(orderedGroups.*)'
+      ],
+
+      _setGroupTitles: function (groups) {
+        this._groupTitles = groups.base.map(function (group) {
+          return group.info.title;
+        });
+      }
+
+    });
+  </script>
+</dom-module>

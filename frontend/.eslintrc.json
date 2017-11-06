@@ -1,0 +1,50 @@
+{
+  "parserOptions": {
+    "ecmaVersion": 6
+  },
+  "extends": "eslint:recommended",
+  "rules": {
+    "no-console": 0,
+    "eqeqeq": 1,
+    "no-else-return": 0,
+    "array-bracket-spacing": 1,
+    "brace-style": [1, "1tbs", {
+      "allowSingleLine": true
+    }],
+    "comma-spacing": 1,
+    "eol-last": 1,
+    "key-spacing": 1,
+    "object-curly-spacing": 0,
+    "space-before-blocks": 1,
+    "keyword-spacing": 1,
+    "quotes": [2, "single", {
+      "avoidEscape": true
+    }],
+    "indent": ["warn", 2]
+  },
+  "env": {
+    "browser": true
+  },
+  "plugins": [
+    "html"
+  ],
+  "globals": {
+    "CustomElements": false,
+    "HTMLImports": false,
+    "Polymer": false,
+    "Promise": false,
+    "test": false,
+    "assert": false,
+    "expect": false,
+    "MockInteractions": false,
+    "suite": false,
+    "fixture": false,
+    "flush": false,
+    "setup": false,
+    "stub": false,
+    "teardown": false,
+    "sinon": false,
+    "WCT": false,
+    "replace": false
+  }
+}

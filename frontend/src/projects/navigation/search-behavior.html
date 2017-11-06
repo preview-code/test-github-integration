@@ -1,0 +1,51 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<script>
+  /*exported SearchBehavior*/
+  /**
+   * @polymerBehavior
+   */
+  var SearchBehavior = {
+
+    properties: {
+      getFields: {
+        type: Function
+      },
+      search: {
+        type: Function,
+        value: function () {
+          return function (list) {
+            return list;
+          }
+        }
+      },
+      searchWord: {
+        type: String,
+        value: ''
+      }
+    },
+    observers: ['_setSearch(getFields)'],
+    _setSearch: function (getFields) {
+      this.search = function (list, searchWord) {
+        if (!searchWord) {
+          return list || [];
+        }
+        searchWord = searchWord.toLowerCase();
+        return list.filter(function (data) {
+          var fields = getFields(data);
+          for (var i = 0; i < fields.length; i++) {
+            if (fields[i].toLowerCase().indexOf(searchWord) > -1) {
+              return true;
+            }
+          }
+        });
+      }
+    }
+  };
+
+</script>

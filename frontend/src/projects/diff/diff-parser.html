@@ -1,0 +1,120 @@
+<!--
+@license
+Copyright (c) 2017 Preview-Code. All rights reserved.
+This code may only be used under the BSD style license found in LICENSE.txt
+-->
+<link rel="import" href="../../../bower_components/polymer/polymer.html">
+
+<script>
+  Polymer({
+    is: 'diff-parser',
+    properties: {
+      diff: String,
+      baseUrl: String,
+      hunks: {
+        type: Array,
+        computed: '_parseDiffToHunks(diff, comments)',
+        notify: true
+      },
+      comments: {
+        type: Array,
+        value: function () {
+          return [];
+        }
+      }
+    },
+    _saveComments: function (hunks, comments) {
+      if (hunks && hunks.length > 0 && comments && comments.length > 0) {
+        hunks.forEach(function (hunk) {
+          comments.forEach(function (comment) {
+            if (hunk.fileNameUrl === comment.path) {
+              hunk.comments.push(comment);
+            }
+          });
+        });
+      }
+      return hunks;
+    },
+
+    _parseDiffToHunks: (function () {
+      var ANYTHING = '(?:.|\n)+?';
+      // Diff hunks are separated by "diff --git" code blocks.
+      // We therefore match up to the point that we encounter a new
+      // "diff --git" by using a positive lookahead (?=).
+      //
+      // "." does not match multi-lines, so we have to also match on "\n"
+      // Lastly the last "diff --git" block does not have a subsequent
+      // block, so we have to match on "$".
+      //
+      // [0] = full match
+      // [1] = from file name in format "--- a/FILE_NAME"
+      // [2] = to file name in format "+++ a/FILE_NAME"
+      // [3] = full changes as hunks
+      var DIFF_DELIMETER = 'diff --git';
+      var DIFF_HEADER = DIFF_DELIMETER + ANYTHING;
+      var DIFF_FILES = '\\-\\-\\- (a\\/(?:.+)|\\/dev\\/null)\n' +
+        '\\+\\+\\+ (b\\/(?:.+)|\\/dev\\/null)\n'
+      var DIFF_EXPRESSION = '(?:' + DIFF_HEADER + DIFF_FILES + '(' + ANYTHING + ')(?:(?=\n' + DIFF_DELIMETER + ')|$))'
+      var DIFF_REGEX = new RegExp(DIFF_EXPRESSION, 'g')
+
+      // Changes in files are separated by "@@  line numbers @@"
+      // The same strategy as above is used, by using a positive lookahead
+      // for the same pattern.
+      //
+      // [0] = full match
+      // [1] = HUNK_DELIMETER
+      // [2] - Start line number before the change is applied
+      // [3] - Amount of lines before the change is applied
+      // [4] - Start line number after the change is applied
+      // [5] - Amount of lines after the change is applied
+      // [6] = all changes matched by ANTYHING
+      var DIGITS = '(\\d+)(?:,(\\d+))?';
+      var HUNK_DELIMETER = '@@ \\-' + DIGITS + ' \\+' + DIGITS + ' @@';
+      var HUNK_EXPRESSION = '(' + HUNK_DELIMETER + ').*\n(' + ANYTHING + ')' + '\n?(?:(?=' + HUNK_DELIMETER + ')|$)';
+      var HUNK_REGEX = new RegExp(HUNK_EXPRESSION, 'g');
+
+      function getFileHeader(parsedDiff, fromFile, toFile) {
+        // File was newly created`
+        if (parsedDiff[1] === '/dev/null') {
+          return { name: toFile, created: true };
+          // File was deleted
+        } else if (parsedDiff[2] === '/dev/null') {
+          return { name: fromFile, deleted: true };
+          // File was renamed
+        } else if (fromFile !== toFile) {
+          return { name: toFile, moved: true, from: fromFile };
+        } return { name: toFile };
+      }
+
+      return function (diff, comments) {
+        if (!diff || diff === '') {
+          return [];
+        }
+        var hunks = [];
+        var parsedDiff, hunk;
+        while ((parsedDiff = DIFF_REGEX.exec(diff)) !== null) {
+          var fileHeader = getFileHeader(parsedDiff, parsedDiff[1].substring(2), parsedDiff[2].substring(2));
+          var fileNameUrl = fileHeader.moved ? 'from' + fileHeader.from + 'to' + fileHeader.name : fileHeader.name
+          var count = 0;
+          while ((hunk = HUNK_REGEX.exec(parsedDiff[3])) !== null) {
+            count++;
+
+            hunks.push({
+              file: fileHeader,
+              fileNameUrl: fileNameUrl,
+              diffId: hunk[1],
+              code: hunk[6],
+              comments: [],
+              startLine: count,
+              beforeStart: parseInt(hunk[2]),
+              afterStart: parseInt(hunk[4])
+            });
+            count = count + hunk[6].split('\n').length;
+          }
+        }
+        return this._saveComments(hunks, comments);
+      };
+    })()
+  });
+
+</script>
